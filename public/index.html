@@ -1,0 +1,49 @@
+<html>
+  <head>
+    <title>wind</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  </head>
+  <style>
+    body {
+        margin: 0px;
+        font-family: Arial;
+    }
+    #map {
+        height: 100vh;
+        width: 100vw;
+        position: absolute;
+        top: 0px;
+        z-index: 0;
+    }
+    #c {
+        height: 100vh;
+        width: 100vw;
+        position: absolute;
+        display: block;
+        top: 0px;
+        z-index: 1;
+        pointer-events: none;
+    }
+    #controls {
+        position: absolute;
+        background: grey;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+    }
+    #ramp {
+        position: absolute;
+        bottom: 100px;
+        left: 0px;
+        transform: scaleY(-100);
+    }
+    </style>
+  <body>
+    <link rel="stylesheet" href="mapbox-gl.css" />
+    <canvas id="c"></canvas>
+    <div id="controls"></div>
+    <div id="preact"></div>
+    <div id="map"></canvas>
+    <script src="bundle.js"></script>
+  </body>
+</html>
