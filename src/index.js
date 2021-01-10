@@ -61,42 +61,35 @@ function main() {
       return fract(sin(t) * (rand_constants.z + t));
   }
 
-  highp float rand2(vec2 co)
-  {
-      highp float a = 12.9898;
-      highp float b = 78.233;
-      highp float c = 43758.5453;
-      highp float dt= dot(co.xy ,vec2(a,b));
-      highp float sn= mod(dt,3.14);
-      return fract(sin(sn) * c);
-  }
-
+  // gold noise implementation from https://stackoverflow.com/a/28095165/1550017
   float PHI = 1.61803398874989484820459;  // Φ = Golden Ratio
-
   float gold_noise(vec2 xy, float seed){
         return fract(tan(distance(xy*PHI, xy)*seed)*xy.x);
   }
 
   vec2 randPos(float seed, vec2 ll) {
-      vec2 temp1 = (ll + oldPosition);
-      return vec2(1.0 + gold_noise(temp1, seed) * canvasDimensions.x, 1.0 + gold_noise(temp1 + 2.4, seed) * canvasDimensions.y);
+      return vec2(gold_noise(ll + 1., seed + 1.) * (canvasDimensions.x), gold_noise(ll, seed) * (canvasDimensions.y));
   }
 
   void main() {
     vec2 lookuppos = oldPosition;
-    vec2 seed1 = oldPosition * jsSeed1;
+    //vec2 seed1 = oldPosition * jsSeed1;
     lookuppos.x /= canvasDimensions.x;
     lookuppos.y /= canvasDimensions.y;
     lookuppos.y = 1. - lookuppos.y;
     vec4 windspeed = texture(windLookup, lookuppos);
     windspeed -= 0.5;
+    vec2 seed1 = lookuppos * jsSeed1;
     float windspeedmeters = length(windspeed.xy);
-    float reset = step(.99 - windspeedmeters * 0.05, rand(seed1));
+    float reset = step(.99 - windspeedmeters * 0.05, gold_noise(oldPosition, jsSeed1));
 
     windspeed *= 100.;
     vec2 temp = oldPosition + windspeed.xy * deltaTime * 5.0;
-    vec2 randPos = randPos(jsSeed1, lookuppos);
-    newPosition = mix(temp, randPos, reset);
+    // if degeneration continues, replacing jsSeed1 below with seed3 worked earlier
+    // float seed3 = fract(deltaTime);
+    vec2 randPos2 = randPos(jsSeed1, oldPosition * jsSeed1);
+    //vec2 randPos2 = vec
+    newPosition = mix(temp, randPos2, reset);
   }
   `;
 
@@ -316,7 +309,7 @@ function main() {
       //gl.clear(gl.COLOR_BUFFER_BIT);
       requestAnimationFrame(render);
       //gl.activeTexture(gl.TEXTURE0);
-    }, 200);
+    }, 2000);
   });
 
   const updatePositionPrgLocs = {
