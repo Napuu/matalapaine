@@ -9,12 +9,13 @@ const imgNE3857 = proj4('EPSG:3857', [imgNE.lng, imgNE.lat]);
 const imgWidth = 1204;
 //const imgHeight = 1790;
 const imgHeight = 1283;
+let northeast, southwest, xM, yM;
 const pixelBounds = [imgWidth, imgHeight];
 const renderingSpecs = {
 
 };
-  const canvas = document.querySelector("#c");
-  const gl = canvas.getContext("webgl2");
+const canvas = document.querySelector("#c");
+const gl = canvas.getContext("webgl2", {antialias: false});
 function main() {
   const quadVS = `#version 300 es
   precision highp float;
@@ -50,6 +51,13 @@ function main() {
   uniform float deltaTime;
   uniform vec2 canvasDimensions;
 
+  uniform vec2 southwest;
+  uniform vec2 imgSW3857;
+  uniform vec2 imgNE3857;
+  uniform vec2 northeast;
+  uniform vec2 pixelBounds;
+  uniform vec2 diff;
+
   out vec2 newPosition;
 
   uniform sampler2D windLookup;
@@ -59,6 +67,19 @@ function main() {
   float rand(const vec2 co) {
       float t = dot(rand_constants.xy, co);
       return fract(sin(t) * (rand_constants.z + t));
+  }
+/*
+const ext2img = (x, y) => {
+  if (!xM) return {x,y};
+  const x0 = Math.floor(((southwest[0] - imgSW3857[0]) / (imgNE3857[0] - imgSW3857[0])) * pixelBounds[0]);
+  const y0 = Math.floor(((imgNE3857[1] - northeast[1]) / (imgNE3857[1] - imgSW3857[1])) * pixelBounds[1]);
+  return {x:Math.floor(x*xM + x0), y: Math.floor(y*yM + y0)};
+};*/
+
+  vec2 ext2img(float x, float y) {
+    float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
+    float y0 = ((imgNE3857.y - northeast.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
+    return vec2(x * diff.x + x0, y * diff.y + y0);
   }
 
   // gold noise implementation from https://stackoverflow.com/a/28095165/1550017
@@ -72,10 +93,10 @@ function main() {
   }
 
   void main() {
-    vec2 lookuppos = oldPosition;
-    //vec2 seed1 = oldPosition * jsSeed1;
-    lookuppos.x /= canvasDimensions.x;
-    lookuppos.y /= canvasDimensions.y;
+    //vec2 lookuppos = oldPosition;
+    vec2 lookuppos = ext2img(oldPosition.x, oldPosition.y);
+    lookuppos.x /= pixelBounds.x;
+    lookuppos.y /= pixelBounds.y;
     lookuppos.y = 1. - lookuppos.y;
     vec4 windspeed = texture(windLookup, lookuppos);
     windspeed -= 0.5;
@@ -86,8 +107,8 @@ function main() {
     windspeed *= 100.;
     vec2 temp = oldPosition + windspeed.xy * deltaTime * 5.0;
     // if degeneration continues, replacing jsSeed1 below with seed3 worked earlier
-    // float seed3 = fract(deltaTime);
-    vec2 randPos2 = randPos(jsSeed1, oldPosition * jsSeed1);
+    float seed3 = fract(deltaTime);
+    vec2 randPos2 = randPos(jsSeed1, oldPosition * seed3);
     //vec2 randPos2 = vec
     newPosition = mix(temp, randPos2, reset);
   }
@@ -108,13 +129,27 @@ function main() {
   out vec4 windColor;
   uniform sampler2D windLookup;
 
+  uniform vec2 southwest;
+  uniform vec2 imgSW3857;
+  uniform vec2 imgNE3857;
+  uniform vec2 northeast;
+  uniform vec2 pixelBounds;
+  uniform vec2 diff;
+
+
   uniform sampler2D colorRamp;
+  vec2 ext2img(float x, float y) {
+    float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
+    float y0 = ((imgNE3857.y - northeast.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
+    return vec2(x * diff.x + x0, y * diff.y + y0);
+  }
 
   void main() {
     // do the common matrix math
-    vec2 lookuppos = (position).xy;
-    lookuppos.x /= canvasDimensions.x;
-    lookuppos.y /= canvasDimensions.y;
+    //vec2 lookuppos = (position).xy;
+    vec2 lookuppos = ext2img(position.x, position.y);
+    lookuppos.x /= pixelBounds.x;
+    lookuppos.y /= pixelBounds.y;
     lookuppos.y = 1. - lookuppos.y;
     vec4 colorthing = texture(windLookup, lookuppos) ;
     colorthing.x -= 0.5;
@@ -136,8 +171,11 @@ function main() {
         //16.0);
 
     windColor = texture(colorRamp, ramp_pos);
-
-    //windColor = vec4(1., 1., 0., 1.);
+    if (lookuppos.y > 1.) {
+      windColor = vec4(0., 0., 1., 1.);
+    } else if (lookuppos.y < 0.) {
+      windColor = vec4(0., 1., 0., 1.);
+    }
     gl_Position = matrix * position;
     gl_PointSize = 2.0;
   }
@@ -319,6 +357,12 @@ function main() {
     deltaTime: gl.getUniformLocation(updatePositionProgram, "deltaTime"),
     windLookup: gl.getUniformLocation(updatePositionProgram, "windLookup"),
     jsSeed1: gl.getUniformLocation(updatePositionProgram, "jsSeed1"),
+    southwest: gl.getUniformLocation(updatePositionProgram, "southwest"),
+    northeast: gl.getUniformLocation(updatePositionProgram, "northeast"),
+    imgSW3857: gl.getUniformLocation(updatePositionProgram, "imgSW3857"),
+    imgNE3857: gl.getUniformLocation(updatePositionProgram, "imgNE3857"),
+    pixelBounds: gl.getUniformLocation(updatePositionProgram, "pixelBounds"),
+    diff: gl.getUniformLocation(updatePositionProgram, "diff"),
   };
 
   const drawParticlesProgLocs = {
@@ -327,6 +371,12 @@ function main() {
     windLookup: gl.getUniformLocation(drawParticlesProgram, "windLookup"),
     canvasDimensions: gl.getUniformLocation(drawParticlesProgram, "canvasDimensions"),
     colorRamp: gl.getUniformLocation(drawParticlesProgram, "colorRamp"),
+    southwest: gl.getUniformLocation(drawParticlesProgram, "southwest"),
+    northeast: gl.getUniformLocation(drawParticlesProgram, "northeast"),
+    imgSW3857: gl.getUniformLocation(drawParticlesProgram, "imgSW3857"),
+    imgNE3857: gl.getUniformLocation(drawParticlesProgram, "imgNE3857"),
+    pixelBounds: gl.getUniformLocation(drawParticlesProgram, "pixelBounds"),
+    diff: gl.getUniformLocation(drawParticlesProgram, "diff"),
   };
 
   const screenProgLocs = {
@@ -508,6 +558,19 @@ function main() {
     gl.uniform1f(updatePositionPrgLocs.deltaTime, deltaTime);
     gl.uniform1i(updatePositionPrgLocs.windLookup, 3);
     gl.uniform1f(updatePositionPrgLocs.jsSeed1, Math.random());
+    gl.uniform2f(updatePositionPrgLocs.southwest, southwest[0], southwest[1]);
+    gl.uniform2f(updatePositionPrgLocs.northeast, northeast[0], northeast[1]);
+    gl.uniform2f(updatePositionPrgLocs.imgSW3857, imgSW3857[0], imgSW3857[1]);
+    gl.uniform2f(updatePositionPrgLocs.imgNE3857, imgNE3857[0], imgNE3857[1]);
+    gl.uniform2f(updatePositionPrgLocs.pixelBounds, pixelBounds[0], pixelBounds[1]);
+    gl.uniform2f(updatePositionPrgLocs.diff, xM, yM);
+    /*
+  uniform vec2 southwest;
+  uniform vec2 imgSW3857;
+  uniform vec2 imgNE3857;
+  uniform vec2 northeast;
+  uniform vec2 pixelBounds;
+    */
     //gl.uniform1f(updatePositionPrgLocs.windLookup, texture);
 
     gl.enable(gl.RASTERIZER_DISCARD);
@@ -539,6 +602,12 @@ function main() {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.uniform1i(drawParticlesProgLocs.windLookup, 3);
     gl.uniform2f(drawParticlesProgLocs.canvasDimensions, gl.canvas.width, gl.canvas.height);
+    gl.uniform2f(drawParticlesProgLocs.southwest, southwest[0], southwest[1]);
+    gl.uniform2f(drawParticlesProgLocs.northeast, northeast[0], northeast[1]);
+    gl.uniform2f(drawParticlesProgLocs.imgSW3857, imgSW3857[0], imgSW3857[1]);
+    gl.uniform2f(drawParticlesProgLocs.imgNE3857, imgNE3857[0], imgNE3857[1]);
+    gl.uniform2f(drawParticlesProgLocs.pixelBounds, pixelBounds[0], pixelBounds[1]);
+    gl.uniform2f(drawParticlesProgLocs.diff, xM, yM);
 
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_2D, ramp);
@@ -620,6 +689,12 @@ const map = new Map({
 });
 
 map.touchZoomRotate.disableRotation();
+const ext2img = (x, y) => {
+  if (!xM) return {x,y};
+  const x0 = Math.floor(((southwest[0] - imgSW3857[0]) / (imgNE3857[0] - imgSW3857[0])) * pixelBounds[0]);
+  const y0 = Math.floor(((imgNE3857[1] - northeast[1]) / (imgNE3857[1] - imgSW3857[1])) * pixelBounds[1]);
+  return {x:Math.floor(x*xM + x0), y: Math.floor(y*yM + y0)};
+}
 const updateLayerBounds = (b) => {
     /*
   if (resizeCanvasToDisplaySize(gl.canvas, pxRatio)) {
@@ -627,12 +702,14 @@ const updateLayerBounds = (b) => {
     resizeFramebufferInfo(gl, fadeFbi2, fadeAttachments);
   }
     */
-  //gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  let northeast = proj4('EPSG:3857', [b._ne.lng, b._ne.lat]);
-  let southwest = proj4('EPSG:3857', [b._sw.lng, b._sw.lat]);
-  let xM = ((northeast[0] - southwest[0]) / (imgNE3857[0] - imgSW3857[0])) * (pixelBounds[0] / gl.canvas.width);
-  let yM = ((northeast[1] - southwest[1]) / (imgNE3857[1] - imgSW3857[1])) * (pixelBounds[1] / gl.canvas.height);
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  northeast = proj4('EPSG:3857', [b._ne.lng, b._ne.lat]);
+  southwest = proj4('EPSG:3857', [b._sw.lng, b._sw.lat]);
+  xM = ((northeast[0] - southwest[0]) / (imgNE3857[0] - imgSW3857[0])) * (pixelBounds[0] / gl.canvas.width);
+  yM = ((northeast[1] - southwest[1]) / (imgNE3857[1] - imgSW3857[1])) * (pixelBounds[1] / gl.canvas.height);
   console.log(xM, yM);
+  console.log(northeast, southwest);
+  console.log(ext2img(0, 0));
 }
 
 map.on("movestart", () => {
