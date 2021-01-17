@@ -11,6 +11,7 @@ const imgWidth = 1204;
 const imgHeight = 1283;
 let northeast, southwest, xM, yM;
 const pixelBounds = [imgWidth, imgHeight];
+console.log("pixelbounds", pixelBounds);
 const renderingSpecs = {
 
 };
@@ -78,7 +79,9 @@ const ext2img = (x, y) => {
 
   vec2 ext2img(float x, float y) {
     float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
-    float y0 = ((imgNE3857.y - northeast.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
+    //float y0 = ((imgNE3857.y - northeast.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
+    float y0 = ((southwest.y - imgSW3857.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
+    //return vec2(x * diff.x + x0, y * diff.y + y0);
     return vec2(x * diff.x + x0, y * diff.y + y0);
   }
 
@@ -140,7 +143,7 @@ const ext2img = (x, y) => {
   uniform sampler2D colorRamp;
   vec2 ext2img(float x, float y) {
     float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
-    float y0 = ((imgNE3857.y - northeast.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
+    float y0 = ((southwest.y - imgSW3857.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
     return vec2(x * diff.x + x0, y * diff.y + y0);
   }
 
@@ -653,7 +656,8 @@ const map = new Map({
       land: {
         'type': 'vector',
         'tiles': [
-          'https://projects.napuu.xyz/naturalearth/maps/land/{z}/{x}/{y}.pbf'
+          //'https://projects.napuu.xyz/naturalearth/maps/land/{z}/{x}/{y}.pbf'
+          'http://192.168.1.228:29090/maps/land/{z}/{x}/{y}.pbf'
         ],
         'minzoom': 0,
         'maxzoom': 6
@@ -709,7 +713,7 @@ const updateLayerBounds = (b) => {
   yM = ((northeast[1] - southwest[1]) / (imgNE3857[1] - imgSW3857[1])) * (pixelBounds[1] / gl.canvas.height);
   console.log(xM, yM);
   console.log(northeast, southwest);
-  console.log(ext2img(0, 0));
+  console.log("ext2img of (0, 0)", ext2img(0, 0));
 }
 
 map.on("movestart", () => {
