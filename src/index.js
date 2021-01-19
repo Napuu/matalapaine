@@ -12,187 +12,19 @@ const imgHeight = 1283;
 let northeast, southwest, xM, yM;
 const pixelBounds = [imgWidth, imgHeight];
 console.log("pixelbounds", pixelBounds);
+let running = true;
+import updatePositionVS from "./shaders/updatePositionVS.glsl";
+import drawParticlesVS from "./shaders/drawParticlesVS.glsl";
+import drawParticlesFS from "./shaders/drawParticlesFS.glsl";
+import screenFS from "./shaders/screenFS.glsl";
+import quadVS from "./shaders/quadVS.glsl";
+import updatePositionFS from "./shaders/updatePositionFS.glsl";
 const renderingSpecs = {
 
 };
 const canvas = document.querySelector("#c");
 const gl = canvas.getContext("webgl2", {antialias: false});
 function main() {
-  const quadVS = `#version 300 es
-  precision highp float;
-
-  in vec2 a_pos;
-
-  out vec2 v_tex_pos;
-
-  void main() {
-      v_tex_pos = a_pos;
-      gl_Position = vec4(1.0 - 2.0 * a_pos, 0, 1);
-  }
-  `;
-  const screenFS = `#version 300 es
-  precision highp float;
-
-  uniform sampler2D u_screen;
-  uniform float u_opacity;
-
-  in vec2 v_tex_pos;
-  out vec4 outColor;
-
-  void main() {
-      vec4 color = texture(u_screen, 1.0 - v_tex_pos);
-      // a hack to guarantee opacity fade out even with a value close to 1.0
-      outColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
-  }
-  `;
-  const updatePositionVS = `#version 300 es
-  precision highp float;
-  in vec2 oldPosition;
-
-  uniform float deltaTime;
-  uniform vec2 canvasDimensions;
-
-  uniform vec2 southwest;
-  uniform vec2 imgSW3857;
-  uniform vec2 imgNE3857;
-  uniform vec2 northeast;
-  uniform vec2 pixelBounds;
-  uniform vec2 diff;
-
-  out vec2 newPosition;
-
-  uniform sampler2D windLookup;
-  uniform float jsSeed1;
-
-  const vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);
-  float rand(const vec2 co) {
-      float t = dot(rand_constants.xy, co);
-      return fract(sin(t) * (rand_constants.z + t));
-  }
-/*
-const ext2img = (x, y) => {
-  if (!xM) return {x,y};
-  const x0 = Math.floor(((southwest[0] - imgSW3857[0]) / (imgNE3857[0] - imgSW3857[0])) * pixelBounds[0]);
-  const y0 = Math.floor(((imgNE3857[1] - northeast[1]) / (imgNE3857[1] - imgSW3857[1])) * pixelBounds[1]);
-  return {x:Math.floor(x*xM + x0), y: Math.floor(y*yM + y0)};
-};*/
-
-  vec2 ext2img(float x, float y) {
-    float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
-    //float y0 = ((imgNE3857.y - northeast.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
-    float y0 = ((southwest.y - imgSW3857.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
-    //return vec2(x * diff.x + x0, y * diff.y + y0);
-    return vec2(x * diff.x + x0, y * diff.y + y0);
-  }
-
-  // gold noise implementation from https://stackoverflow.com/a/28095165/1550017
-  float PHI = 1.61803398874989484820459;  // Φ = Golden Ratio
-  float gold_noise(vec2 xy, float seed){
-        return fract(tan(distance(xy*PHI, xy)*seed)*xy.x);
-  }
-
-  vec2 randPos(float seed, vec2 ll) {
-      return vec2(gold_noise(ll + 1., seed + 1.) * (canvasDimensions.x), gold_noise(ll, seed) * (canvasDimensions.y));
-  }
-
-  void main() {
-    //vec2 lookuppos = oldPosition;
-    vec2 lookuppos = ext2img(oldPosition.x, oldPosition.y);
-    lookuppos.x /= pixelBounds.x;
-    lookuppos.y /= pixelBounds.y;
-    lookuppos.y = 1. - lookuppos.y;
-    vec4 windspeed = texture(windLookup, lookuppos);
-    windspeed -= 0.5;
-    vec2 seed1 = lookuppos * jsSeed1;
-    float windspeedmeters = length(windspeed.xy);
-    float reset = step(.99 - windspeedmeters * 0.05, gold_noise(oldPosition, jsSeed1));
-
-    windspeed *= 100.;
-    vec2 temp = oldPosition + windspeed.xy * deltaTime * 5.0;
-    // if degeneration continues, replacing jsSeed1 below with seed3 worked earlier
-    float seed3 = fract(deltaTime);
-    vec2 randPos2 = randPos(jsSeed1, oldPosition * seed3);
-    //vec2 randPos2 = vec
-    newPosition = mix(temp, randPos2, reset);
-  }
-  `;
-
-  const updatePositionFS = `#version 300 es
-  precision highp float;
-  void main() {
-  }
-  `;
-
-  const drawParticlesVS = `#version 300 es
-  in vec4 position;
-  uniform mat4 matrix;
-
-  uniform vec2 canvasDimensions;
-
-  out vec4 windColor;
-  uniform sampler2D windLookup;
-
-  uniform vec2 southwest;
-  uniform vec2 imgSW3857;
-  uniform vec2 imgNE3857;
-  uniform vec2 northeast;
-  uniform vec2 pixelBounds;
-  uniform vec2 diff;
-
-
-  uniform sampler2D colorRamp;
-  vec2 ext2img(float x, float y) {
-    float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
-    float y0 = ((southwest.y - imgSW3857.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
-    return vec2(x * diff.x + x0, y * diff.y + y0);
-  }
-
-  void main() {
-    // do the common matrix math
-    //vec2 lookuppos = (position).xy;
-    vec2 lookuppos = ext2img(position.x, position.y);
-    lookuppos.x /= pixelBounds.x;
-    lookuppos.y /= pixelBounds.y;
-    lookuppos.y = 1. - lookuppos.y;
-    vec4 colorthing = texture(windLookup, lookuppos) ;
-    colorthing.x -= 0.5;
-    vec4 windspeed = texture(windLookup, lookuppos);
-    float windspeedmeters = windspeed.z;
-    if (windspeedmeters > 10. / 255.) {
-      windColor = vec4(1., 0., 0., 1.);
-    } else {
-      windColor = vec4(1., 1., 0., 1.);
-    }
-
-    float xa = windspeedmeters * 25.;
-
-    // color ramp is encoded in a 16x16 texture
-    vec2 ramp_pos = vec2(
-        fract(16.0 * xa),
-        //16.0,
-        floor(16.0 * xa) / 16.0);
-        //16.0);
-
-    windColor = texture(colorRamp, ramp_pos);
-    if (lookuppos.y > 1.) {
-      windColor = vec4(0., 0., 1., 1.);
-    } else if (lookuppos.y < 0.) {
-      windColor = vec4(0., 1., 0., 1.);
-    }
-    gl_Position = matrix * position;
-    gl_PointSize = 2.0;
-  }
-  `;
-
-  const drawParticlesFS = `#version 300 es
-  precision highp float;
-  out vec4 outColor;
-  in vec4 windColor;
-  void main() {
-    //outColor = vec4(1, 0, 0, 1);
-    outColor = windColor;
-  }
-  `;
 
   // Get A WebGL context
   /** @type {HTMLCanvasElement} */
@@ -292,39 +124,6 @@ const ext2img = (x, y) => {
     }
     return program;
   }
-  function createProgram2(gl, vertexSource, fragmentSource) {
-    const program = gl.createProgram();
-
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(program));
-
-    }
-
-    const wrapper = {program: program};
-
-    const numAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
-    for (let i = 0; i < numAttributes; i++) {
-      const attribute = gl.getActiveAttrib(program, i);
-      wrapper[attribute.name] = gl.getAttribLocation(program, attribute.name);
-
-    }
-    const numUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-    for (let i = 0; i < numUniforms; i++) {
-      const uniform = gl.getActiveUniform(program, i);
-      wrapper[uniform.name] = gl.getUniformLocation(program, uniform.name);
-
-    }
-
-    return wrapper;
-
-  }
 
   const updatePositionProgram = createProgram(
     gl, updatePositionVS, updatePositionFS, ["newPosition"]);
@@ -337,7 +136,7 @@ const ext2img = (x, y) => {
   gl.bindTexture(gl.TEXTURE_2D, texture);
   // use texture unit 2
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
-                new Uint8Array([0, 0, 255, 255]));
+    new Uint8Array([0, 0, 255, 255]));
   var image = new Image();
   image.src = "fresh.jpeg";
   //gl.activeTexture(gl.TEXTURE0);
@@ -380,6 +179,7 @@ const ext2img = (x, y) => {
     imgNE3857: gl.getUniformLocation(drawParticlesProgram, "imgNE3857"),
     pixelBounds: gl.getUniformLocation(drawParticlesProgram, "pixelBounds"),
     diff: gl.getUniformLocation(drawParticlesProgram, "diff"),
+    running: gl.getUniformLocation(drawParticlesProgram, "running"),
   };
 
   const screenProgLocs = {
@@ -399,9 +199,9 @@ const ext2img = (x, y) => {
     }
     return Math.random() * (max - min) + min;
   };
-  const numParticles = 50000;
+  const numParticles = 100000;
   const createPoints = (num, ranges) =>
-        new Array(num).fill(0).map(_ => ranges.map(range => rand(...range))).flat(); /* eslint-disable-line */
+    new Array(num).fill(0).map(_ => ranges.map(range => rand(...range))).flat(); /* eslint-disable-line */
   const positions = new Float32Array(createPoints(numParticles, [[canvas.width], [canvas.height]]));
 
   function makeBuffer(gl, sizeOrData, usage) {
@@ -411,8 +211,8 @@ const ext2img = (x, y) => {
     return buf;
   }
 
-  const position1Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
-  const position2Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
+  let position1Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
+  let position2Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
   //const velocityBuffer = makeBuffer(gl, velocities, gl.STATIC_DRAW);
 
   function makeVertexArray(gl, bufLocPairs, _va=undefined) {
@@ -573,7 +373,7 @@ const ext2img = (x, y) => {
   uniform vec2 imgNE3857;
   uniform vec2 northeast;
   uniform vec2 pixelBounds;
-    */
+  */
     //gl.uniform1f(updatePositionPrgLocs.windLookup, texture);
 
     gl.enable(gl.RASTERIZER_DISCARD);
@@ -596,7 +396,7 @@ const ext2img = (x, y) => {
 
     bindFramebuffer(gl, framebuffer, screenTexture);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    drawTexture(backgroundTexture, fadeOpacity);
+    drawTexture(backgroundTexture, running ? fadeOpacity : 0.9);
     // now draw the particles to screenTexture
     //bindFramebuffer(gl, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -610,6 +410,7 @@ const ext2img = (x, y) => {
     gl.uniform2f(drawParticlesProgLocs.imgSW3857, imgSW3857[0], imgSW3857[1]);
     gl.uniform2f(drawParticlesProgLocs.imgNE3857, imgNE3857[0], imgNE3857[1]);
     gl.uniform2f(drawParticlesProgLocs.pixelBounds, pixelBounds[0], pixelBounds[1]);
+    gl.uniform1i(drawParticlesProgLocs.running, running ? 1 : 0);
     gl.uniform2f(drawParticlesProgLocs.diff, xM, yM);
 
     gl.activeTexture(gl.TEXTURE4);
@@ -700,12 +501,12 @@ const ext2img = (x, y) => {
   return {x:Math.floor(x*xM + x0), y: Math.floor(y*yM + y0)};
 }
 const updateLayerBounds = (b) => {
-    /*
+  /*
   if (resizeCanvasToDisplaySize(gl.canvas, pxRatio)) {
     resizeFramebufferInfo(gl, fadeFbi1, fadeAttachments);
     resizeFramebufferInfo(gl, fadeFbi2, fadeAttachments);
   }
-    */
+  */
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   northeast = proj4('EPSG:3857', [b._ne.lng, b._ne.lat]);
   southwest = proj4('EPSG:3857', [b._sw.lng, b._sw.lat]);
@@ -717,37 +518,18 @@ const updateLayerBounds = (b) => {
 }
 
 map.on("movestart", () => {
-  //running = false;
-})
-
-map.on("click", (ev) => {
-  console.log(ev);
-    /*
-  const transformed = ext2img(ev.point.x, ev.point.y);
-  if (transformed.x > pixelBounds[0] || transformed.x < 0 || transformed.y > pixelBounds[1] || transformed.y < 0) {
-    return {x: 0, y: 0};
-  }
-  const startI = Math.floor(transformed.y) * (imgWidth * 4) + Math.floor(transformed.x) * 4;
-  const d = {x:(imgData[startI] - 255/2) * 50/(255 / 2), y: -((imgData[startI + 1] - 255/2)) * 50/(225 / 2)};
-  console.log(Math.sqrt(d.x**2 + d.y**2));
-    */
+  running = false;
 })
 
 map.on("moveend", () => {
-  //running = true;
+  running = true;
   console.log("?? moving");
   updateLayerBounds(map.getBounds());
-  //mixAmount = 1.0;
-  //requestAnimationFrame(render);
+  //position1Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
+  //position2Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
 })
 
 map.on("load", () => {
-  console.log("???loaded map");
-//const imgSW = {lng: -42, lat: 40};
-//const imgNE = {lng: 48, lat: 80};
-  // w s e n
   map.fitBounds([-28, 65, 39, 65])
-  //updateLayerBounds(map.getBounds());
-  //requestAnimationFrame(render);
   main();
 });
