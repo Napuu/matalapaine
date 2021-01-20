@@ -5,11 +5,8 @@ in vec2 oldPosition;
 uniform float deltaTime;
 uniform vec2 canvasDimensions;
 
-uniform vec2 southwest;
-uniform vec2 imgSW3857;
-uniform vec2 imgNE3857;
-uniform vec2 northeast;
-uniform vec2 pixelBounds;
+uniform vec2 imageSizePixels;
+uniform vec2 windLookupOffset;
 uniform vec2 diff;
 
 out vec2 newPosition;
@@ -24,9 +21,7 @@ float rand(const vec2 co) {
 }
 
 vec2 ext2img(float x, float y) {
-  float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
-  float y0 = ((southwest.y - imgSW3857.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
-  return vec2(x * diff.x + x0, y * diff.y + y0);
+  return vec2(x * diff.x + windLookupOffset[0], y * diff.y + windLookupOffset[1]);
 }
 
 // gold noise implementation from https://stackoverflow.com/a/28095165/1550017
@@ -36,13 +31,13 @@ float gold_noise(vec2 xy, float seed){
 }
 
 vec2 randPos(float seed, vec2 ll) {
-  return vec2(gold_noise(ll + 1., seed + 1.) * (canvasDimensions.x), gold_noise(ll, seed) * (canvasDimensions.y));
+  return vec2(gold_noise(ll + 1., seed + 1.) * (canvasDimensions.x + 20.)-10., gold_noise(ll, seed) * (canvasDimensions.y + 20.) - 10.);
 }
 
 void main() {
   vec2 lookuppos = ext2img(oldPosition.x, oldPosition.y);
-  lookuppos.x /= pixelBounds.x;
-  lookuppos.y /= pixelBounds.y;
+  lookuppos.x /= imageSizePixels.x;
+  lookuppos.y /= imageSizePixels.y;
   lookuppos.y = 1. - lookuppos.y;
   vec4 windspeed = texture(windLookup, lookuppos);
   windspeed -= 0.5;

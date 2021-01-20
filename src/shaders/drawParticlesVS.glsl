@@ -7,27 +7,21 @@ uniform vec2 canvasDimensions;
 out vec4 windColor;
 uniform sampler2D windLookup;
 
-uniform vec2 southwest;
-uniform vec2 imgSW3857;
-uniform vec2 imgNE3857;
-uniform vec2 northeast;
-uniform vec2 pixelBounds;
+uniform vec2 windLookupOffset;
+uniform vec2 imageSizePixels;
 uniform vec2 diff;
 uniform int running;
 
-
 uniform sampler2D colorRamp;
 vec2 ext2img(float x, float y) {
-  float x0 = ((southwest.x - imgSW3857.x) / (imgNE3857.x - imgSW3857.x)) * pixelBounds.x;
-  float y0 = ((southwest.y - imgSW3857.y) / (imgNE3857.y - imgSW3857.y)) * pixelBounds.y;
-  return vec2(x * diff.x + x0, y * diff.y + y0);
+  return vec2(x * diff.x + windLookupOffset[0], y * diff.y + windLookupOffset[1]);
 }
 
 void main() {
   // do the common matrix math
   vec2 lookuppos = ext2img(position.x, position.y);
-  lookuppos.x /= pixelBounds.x;
-  lookuppos.y /= pixelBounds.y;
+  lookuppos.x /= imageSizePixels.x;
+  lookuppos.y /= imageSizePixels.y;
   lookuppos.y = 1. - lookuppos.y;
   vec4 colorthing = texture(windLookup, lookuppos) ;
   colorthing.x -= 0.5;

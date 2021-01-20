@@ -1,27 +1,22 @@
-import {Map} from "maplibre-gl";
+import { Map } from "maplibre-gl";
 import proj4 from "proj4";
-const imgSW = {lng: -42, lat: 40};
-const imgSW3857 = proj4('EPSG:3857', [imgSW.lng, imgSW.lat]);
-//const imgNE = {lng: 34.5420283, lat: 74.0060376};
-const imgNE = {lng: 48, lat: 80};
-const imgNE3857 = proj4('EPSG:3857', [imgNE.lng, imgNE.lat]);
-//const imgWidth = 1254;
-const imgWidth = 1204;
-//const imgHeight = 1790;
-const imgHeight = 1283;
-let northeast, southwest, xM, yM;
-const pixelBounds = [imgWidth, imgHeight];
-console.log("pixelbounds", pixelBounds);
+const imageBboxEPSG4326 = [-42, 40, 48, 80];
+const imageSizePixels = [1204, 1283];
+const imageBboxEPSG3857 = [
+  ...proj4('EPSG:3857', imageBboxEPSG4326.slice(0, 2)),
+  ...proj4('EPSG:3857', imageBboxEPSG4326.slice(2))
+];
+
+let windLookupOffset = [], windLookup2CanvasRatio = [];
 let running = true;
+
 import updatePositionVS from "./shaders/updatePositionVS.glsl";
 import drawParticlesVS from "./shaders/drawParticlesVS.glsl";
 import drawParticlesFS from "./shaders/drawParticlesFS.glsl";
 import screenFS from "./shaders/screenFS.glsl";
 import quadVS from "./shaders/quadVS.glsl";
 import updatePositionFS from "./shaders/updatePositionFS.glsl";
-const renderingSpecs = {
 
-};
 const canvas = document.querySelector("#c");
 const gl = canvas.getContext("webgl2", {antialias: false});
 function main() {
@@ -90,7 +85,6 @@ function main() {
   }
 
   let pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
-  //pxRatio = 1;
   canvas.width = canvas.clientWidth * pxRatio;
   canvas.height = canvas.clientHeight* pxRatio;
   const fadeOpacity = 0.99;
@@ -149,21 +143,17 @@ function main() {
       //gl.clear(gl.COLOR_BUFFER_BIT);
       requestAnimationFrame(render);
       //gl.activeTexture(gl.TEXTURE0);
-    }, 2000);
+    }, 100);
   });
 
-  const updatePositionPrgLocs = {
+  const updatePositionProgLocsLocs = {
     oldPosition: gl.getAttribLocation(updatePositionProgram, "oldPosition"),
-    //velocity: gl.getAttribLocation(updatePositionProgram, 'velocity'),
     canvasDimensions: gl.getUniformLocation(updatePositionProgram, "canvasDimensions"),
     deltaTime: gl.getUniformLocation(updatePositionProgram, "deltaTime"),
     windLookup: gl.getUniformLocation(updatePositionProgram, "windLookup"),
     jsSeed1: gl.getUniformLocation(updatePositionProgram, "jsSeed1"),
-    southwest: gl.getUniformLocation(updatePositionProgram, "southwest"),
-    northeast: gl.getUniformLocation(updatePositionProgram, "northeast"),
-    imgSW3857: gl.getUniformLocation(updatePositionProgram, "imgSW3857"),
-    imgNE3857: gl.getUniformLocation(updatePositionProgram, "imgNE3857"),
-    pixelBounds: gl.getUniformLocation(updatePositionProgram, "pixelBounds"),
+    imageSizePixels: gl.getUniformLocation(updatePositionProgram, "imageSizePixels"),
+    windLookupOffset: gl.getUniformLocation(updatePositionProgram, "windLookupOffset"),
     diff: gl.getUniformLocation(updatePositionProgram, "diff"),
   };
 
@@ -173,12 +163,9 @@ function main() {
     windLookup: gl.getUniformLocation(drawParticlesProgram, "windLookup"),
     canvasDimensions: gl.getUniformLocation(drawParticlesProgram, "canvasDimensions"),
     colorRamp: gl.getUniformLocation(drawParticlesProgram, "colorRamp"),
-    southwest: gl.getUniformLocation(drawParticlesProgram, "southwest"),
-    northeast: gl.getUniformLocation(drawParticlesProgram, "northeast"),
-    imgSW3857: gl.getUniformLocation(drawParticlesProgram, "imgSW3857"),
-    imgNE3857: gl.getUniformLocation(drawParticlesProgram, "imgNE3857"),
-    pixelBounds: gl.getUniformLocation(drawParticlesProgram, "pixelBounds"),
+    imageSizePixels: gl.getUniformLocation(drawParticlesProgram, "imageSizePixels"),
     diff: gl.getUniformLocation(drawParticlesProgram, "diff"),
+    windLookupOffset: gl.getUniformLocation(drawParticlesProgram, "windLookupOffset"),
     running: gl.getUniformLocation(drawParticlesProgram, "running"),
   };
 
@@ -213,36 +200,31 @@ function main() {
 
   let position1Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
   let position2Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
-  //const velocityBuffer = makeBuffer(gl, velocities, gl.STATIC_DRAW);
 
-  function makeVertexArray(gl, bufLocPairs, _va=undefined) {
-    let va;
-    if (!_va) va = gl.createVertexArray();
-    else va = _va;
-    gl.bindVertexArray(va);
-    for (const [buffer, loc] of bufLocPairs) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(
-        loc,      // attribute location
-        2,        // number of elements
-        gl.FLOAT, // type of data
-        false,    // normalize
-        0,        // stride (0 = auto)
-        0,        // offset
-      );
-    }
+  function makeVertexArray(gl, buffer, loc) {
+    const va = gl.createVertexArray();
+    bindAndEnablePointer(gl, buffer, loc, va);
     return va;
   }
 
+  function bindAndEnablePointer(gl, buffer, loc, va) {
+    gl.bindVertexArray(va);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(
+      loc,      // attribute location
+      2,        // number of elements
+      gl.FLOAT, // type of data
+      false,    // normalize
+      0,        // stride (0 = auto)
+      0,        // offset
+    );
+  }
+
   console.log("updateposva1");
-  const updatePositionVA1 = makeVertexArray(gl, [
-    [position1Buffer, updatePositionPrgLocs.oldPosition],
-  ]);
+  const updatePositionVA1 = makeVertexArray(gl, position1Buffer, updatePositionProgLocsLocs.oldPosition);
   console.log("updateposva2");
-  const updatePositionVA2 = makeVertexArray(gl, [
-    [position2Buffer, updatePositionPrgLocs.oldPosition],
-  ]);
+  const updatePositionVA2 = makeVertexArray(gl, position2Buffer, updatePositionProgLocsLocs.oldPosition);
 
   function createBuffer(gl, data) {
     const buffer = gl.createBuffer();
@@ -250,10 +232,8 @@ function main() {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     return buffer;
   }
-  const drawVA1 = makeVertexArray(
-    gl, [[position1Buffer, drawParticlesProgLocs.position]]);
-  const drawVA2 = makeVertexArray(
-    gl, [[position2Buffer, drawParticlesProgLocs.position]]);
+  const drawVA1 = makeVertexArray(gl, position1Buffer, drawParticlesProgLocs.position);
+  const drawVA2 = makeVertexArray(gl, position2Buffer, drawParticlesProgLocs.position);
 
   function makeTransformFeedback(gl, buffer) {
     const tf = gl.createTransformFeedback();
@@ -281,7 +261,6 @@ function main() {
     }
     gl.bindTexture(gl.TEXTURE_2D, null);
     return texture;
-
   }
 
   let framebuffer = gl.createFramebuffer();
@@ -308,7 +287,6 @@ function main() {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.enableVertexAttribArray(attribute);
     gl.vertexAttribPointer(attribute, numComponents, gl.FLOAT, false, 0, 0);
-
   }
 
   function bindTexture(gl, texture, unit) {
@@ -337,8 +315,6 @@ function main() {
   }
   let then = 0;
   function render(time) {
-    //stats.begin();
-    // TODO test if these actually improve performance
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.STENCIL_TEST);
 
@@ -349,69 +325,48 @@ function main() {
     // Remember the current time for the next frame.
     then = time;
 
-    //webglUtils.resizeCanvasToDisplaySize(gl.canvas);
-
-    // compute the new positions
     gl.useProgram(updatePositionProgram);
 
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.bindVertexArray(current.updateVA);
-    gl.uniform2f(updatePositionPrgLocs.canvasDimensions, gl.canvas.width, gl.canvas.height);
-    gl.uniform1f(updatePositionPrgLocs.deltaTime, deltaTime);
-    gl.uniform1i(updatePositionPrgLocs.windLookup, 3);
-    gl.uniform1f(updatePositionPrgLocs.jsSeed1, Math.random());
-    gl.uniform2f(updatePositionPrgLocs.southwest, southwest[0], southwest[1]);
-    gl.uniform2f(updatePositionPrgLocs.northeast, northeast[0], northeast[1]);
-    gl.uniform2f(updatePositionPrgLocs.imgSW3857, imgSW3857[0], imgSW3857[1]);
-    gl.uniform2f(updatePositionPrgLocs.imgNE3857, imgNE3857[0], imgNE3857[1]);
-    gl.uniform2f(updatePositionPrgLocs.pixelBounds, pixelBounds[0], pixelBounds[1]);
-    gl.uniform2f(updatePositionPrgLocs.diff, xM, yM);
-    /*
-  uniform vec2 southwest;
-  uniform vec2 imgSW3857;
-  uniform vec2 imgNE3857;
-  uniform vec2 northeast;
-  uniform vec2 pixelBounds;
-  */
-    //gl.uniform1f(updatePositionPrgLocs.windLookup, texture);
+    gl.uniform2f(updatePositionProgLocsLocs.canvasDimensions, gl.canvas.width, gl.canvas.height);
+    gl.uniform1f(updatePositionProgLocsLocs.deltaTime, deltaTime);
+    gl.uniform1i(updatePositionProgLocsLocs.windLookup, 3);
+    gl.uniform1f(updatePositionProgLocsLocs.jsSeed1, Math.random());
+    gl.uniform2f(updatePositionProgLocsLocs.imageSizePixels, ...imageSizePixels);
+    gl.uniform2f(updatePositionProgLocsLocs.windLookupOffset, ...windLookupOffset);
+    gl.uniform2f(updatePositionProgLocsLocs.diff, ...windLookup2CanvasRatio);
 
     gl.enable(gl.RASTERIZER_DISCARD);
-
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, current.tf);
     gl.beginTransformFeedback(gl.POINTS);
-    //gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    //gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER, null);
+
     if (current.index === 2) {
-      makeVertexArray(gl, [[position2Buffer, updatePositionPrgLocs.oldPosition]], current.updateVA);
+      bindAndEnablePointer(gl, position2Buffer, updatePositionProgLocsLocs.oldPosition, current.updateVA);
     } else {
-      makeVertexArray(gl, [[position1Buffer, updatePositionPrgLocs.oldPosition]], current.updateVA);
+      bindAndEnablePointer(gl, position1Buffer, updatePositionProgLocsLocs.oldPosition, current.updateVA);
     }
     gl.drawArrays(gl.POINTS, 0, numParticles);
     gl.endTransformFeedback();
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
 
-    // turn on using fragment shaders again
     gl.disable(gl.RASTERIZER_DISCARD);
 
     bindFramebuffer(gl, framebuffer, screenTexture);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     drawTexture(backgroundTexture, running ? fadeOpacity : 0.9);
-    // now draw the particles to screenTexture
-    //bindFramebuffer(gl, null);
+
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.useProgram(drawParticlesProgram);
     gl.bindVertexArray(current.drawVA);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.uniform1i(drawParticlesProgLocs.windLookup, 3);
     gl.uniform2f(drawParticlesProgLocs.canvasDimensions, gl.canvas.width, gl.canvas.height);
-    gl.uniform2f(drawParticlesProgLocs.southwest, southwest[0], southwest[1]);
-    gl.uniform2f(drawParticlesProgLocs.northeast, northeast[0], northeast[1]);
-    gl.uniform2f(drawParticlesProgLocs.imgSW3857, imgSW3857[0], imgSW3857[1]);
-    gl.uniform2f(drawParticlesProgLocs.imgNE3857, imgNE3857[0], imgNE3857[1]);
-    gl.uniform2f(drawParticlesProgLocs.pixelBounds, pixelBounds[0], pixelBounds[1]);
+    gl.uniform2f(drawParticlesProgLocs.windLookupOffset, ...windLookupOffset);
+    gl.uniform2f(drawParticlesProgLocs.imageSizePixels, imageSizePixels[0], imageSizePixels[1]);
     gl.uniform1i(drawParticlesProgLocs.running, running ? 1 : 0);
-    gl.uniform2f(drawParticlesProgLocs.diff, xM, yM);
+    gl.uniform2f(drawParticlesProgLocs.diff, ...windLookup2CanvasRatio);
 
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_2D, ramp);
@@ -421,10 +376,11 @@ function main() {
       drawParticlesProgLocs.matrix,
       false,
       orthographic(0, gl.canvas.width, 0, gl.canvas.height, -1, 1));
+
     if (current.index === 1) {
-      makeVertexArray(gl, [[position2Buffer, drawParticlesProgLocs.position]], current.drawVA);
+      bindAndEnablePointer(gl, position2Buffer, drawParticlesProgLocs.position, current.drawVA);
     } else {
-      makeVertexArray(gl, [[position1Buffer, drawParticlesProgLocs.position]], current.drawVA);
+      bindAndEnablePointer(gl, position1Buffer, drawParticlesProgLocs.position, current.drawVA);
     }
     gl.drawArrays(gl.POINTS, 0, numParticles);
 
@@ -442,10 +398,8 @@ function main() {
     const temp3 = backgroundTexture;
     backgroundTexture = screenTexture;
     screenTexture = temp3;
-    //stats.end();
     requestAnimationFrame(render);
   }
-  //requestAnimationFrame(render);
 }
 const map = new Map({
   container: "map",
@@ -494,12 +448,6 @@ const map = new Map({
 });
 
 map.touchZoomRotate.disableRotation();
-const ext2img = (x, y) => {
-  if (!xM) return {x,y};
-  const x0 = Math.floor(((southwest[0] - imgSW3857[0]) / (imgNE3857[0] - imgSW3857[0])) * pixelBounds[0]);
-  const y0 = Math.floor(((imgNE3857[1] - northeast[1]) / (imgNE3857[1] - imgSW3857[1])) * pixelBounds[1]);
-  return {x:Math.floor(x*xM + x0), y: Math.floor(y*yM + y0)};
-}
 const updateLayerBounds = (b) => {
   /*
   if (resizeCanvasToDisplaySize(gl.canvas, pxRatio)) {
@@ -507,14 +455,18 @@ const updateLayerBounds = (b) => {
     resizeFramebufferInfo(gl, fadeFbi2, fadeAttachments);
   }
   */
+  const imageWidthEPSG3857 = imageBboxEPSG3857[2] - imageBboxEPSG3857[0];
+  const imageHeightEPSG3857 = imageBboxEPSG3857[3] - imageBboxEPSG3857[1];
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  northeast = proj4('EPSG:3857', [b._ne.lng, b._ne.lat]);
-  southwest = proj4('EPSG:3857', [b._sw.lng, b._sw.lat]);
-  xM = ((northeast[0] - southwest[0]) / (imgNE3857[0] - imgSW3857[0])) * (pixelBounds[0] / gl.canvas.width);
-  yM = ((northeast[1] - southwest[1]) / (imgNE3857[1] - imgSW3857[1])) * (pixelBounds[1] / gl.canvas.height);
-  console.log(xM, yM);
-  console.log(northeast, southwest);
-  console.log("ext2img of (0, 0)", ext2img(0, 0));
+  const mapBounds = [...proj4('EPSG:3857', [b._sw.lng, b._sw.lat]), ...proj4('EPSG:3857', [b._ne.lng, b._ne.lat])];
+  windLookup2CanvasRatio = [
+    (mapBounds[2] - mapBounds[0]) / imageWidthEPSG3857 * (imageSizePixels[0] / gl.canvas.width),
+    (mapBounds[3] - mapBounds[1]) / imageHeightEPSG3857 * (imageSizePixels[1] / gl.canvas.height)
+  ];
+  windLookupOffset = [
+    (mapBounds[0] - imageBboxEPSG3857[0]) / imageWidthEPSG3857 * imageSizePixels[0],
+    (mapBounds[1] - imageBboxEPSG3857[1]) / imageHeightEPSG3857 * imageSizePixels[1]
+  ];
 }
 
 map.on("movestart", () => {
@@ -523,10 +475,7 @@ map.on("movestart", () => {
 
 map.on("moveend", () => {
   running = true;
-  console.log("?? moving");
   updateLayerBounds(map.getBounds());
-  //position1Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
-  //position2Buffer = makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
 })
 
 map.on("load", () => {
