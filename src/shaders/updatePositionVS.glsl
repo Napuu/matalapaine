@@ -44,7 +44,6 @@ void main() {
   vec2 seed1 = lookuppos * jsSeed1;
   float windspeedmeters = length(windspeed.xy);
   float reset = step(.99 - windspeedmeters * 0.05, gold_noise(oldPosition, jsSeed1));
-
   windspeed *= 100.;
   vec2 temp = oldPosition + windspeed.xy * deltaTime * 5.0;
   // if degeneration continues, replacing jsSeed1 below with seed3 worked earlier

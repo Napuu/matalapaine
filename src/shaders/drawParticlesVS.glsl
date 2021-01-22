@@ -43,6 +43,7 @@ void main() {
   //16.0);
 
   windColor = texture(colorRamp, ramp_pos);
+  windColor[3] = 0.8;
   vec4 invisible = vec4(0., 0., 0., 0.);
   if (running == 0 || lookuppos.y > 1. || lookuppos.y < 0. || lookuppos.x > 1. || lookuppos.x < 0.) {
     windColor = invisible;

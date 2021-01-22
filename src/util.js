@@ -1,4 +1,3 @@
-
 export function makeBuffer(gl, sizeOrData, usage) {
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -17,12 +16,12 @@ export function bindAndEnablePointer(gl, buffer, loc, va) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(
-    loc,      // attribute location
-    2,        // number of elements
+    loc, // attribute location
+    2, // number of elements
     gl.FLOAT, // type of data
-    false,    // normalize
-    0,        // stride (0 = auto)
-    0,        // offset
+    false, // normalize
+    0, // stride (0 = auto)
+    0 // offset
   );
 }
 
@@ -48,11 +47,19 @@ export function createTexture(gl, filter, data, width, height) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
   if (data instanceof Uint8Array) {
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      width,
+      height,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      data
+    );
   } else {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, data);
-
   }
   gl.bindTexture(gl.TEXTURE_2D, null);
   return texture;
@@ -69,7 +76,7 @@ export function getColorRamp() {
     0.4: "#fe9929",
     0.5: "#ec7014",
     0.6: "#cc4c02",
-    1.0: "#8c2d04"
+    1.0: "#8c2d04",
   };
   const canvas = document.createElement("canvas");
   canvas.id = "ramp";
@@ -104,11 +111,24 @@ export function bindTexture(gl, texture, unit) {
 export function bindFramebuffer(gl, framebuffer, texture) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
   if (texture) {
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      texture,
+      0
+    );
   }
 }
 
-export function drawTexture(texture, opacity, quadBuffer, screenProgram, gl, screenProgLocs) {
+export function drawTexture(
+  texture,
+  opacity,
+  quadBuffer,
+  screenProgram,
+  gl,
+  screenProgLocs
+) {
   const program = screenProgram;
   gl.useProgram(program);
 
@@ -124,16 +144,16 @@ export function drawTexture(texture, opacity, quadBuffer, screenProgram, gl, scr
 export function orthographic(left, right, bottom, top, near, far, dst) {
   dst = dst || new Float32Array(16);
 
-  dst[ 0 ] = 2 / (right - left);
-  dst[ 1 ] = 0;
-  dst[ 2 ] = 0;
-  dst[ 3 ] = 0;
-  dst[ 4 ] = 0;
-  dst[ 5 ] = 2 / (top - bottom);
-  dst[ 6 ] = 0;
-  dst[ 7 ] = 0;
-  dst[ 8 ] = 0;
-  dst[ 9 ] = 0;
+  dst[0] = 2 / (right - left);
+  dst[1] = 0;
+  dst[2] = 0;
+  dst[3] = 0;
+  dst[4] = 0;
+  dst[5] = 2 / (top - bottom);
+  dst[6] = 0;
+  dst[7] = 0;
+  dst[8] = 0;
+  dst[9] = 0;
   dst[10] = 2 / (near - far);
   dst[11] = 0;
   dst[12] = (left + right) / (left - right);
@@ -154,7 +174,12 @@ export function createShader(gl, type, src) {
   return shader;
 }
 
-export function createProgram(gl, vertexSource, fragmentSource, transformFeedbackVaryings=undefined) {
+export function createProgram(
+  gl,
+  vertexSource,
+  fragmentSource,
+  transformFeedbackVaryings = undefined
+) {
   const program = gl.createProgram();
   const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
   const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
@@ -165,7 +190,7 @@ export function createProgram(gl, vertexSource, fragmentSource, transformFeedbac
     gl.transformFeedbackVaryings(
       program,
       transformFeedbackVaryings,
-      gl.SEPARATE_ATTRIBS,
+      gl.SEPARATE_ATTRIBS
     );
   }
   gl.linkProgram(program);
