@@ -1,5 +1,15 @@
 import { Map } from "maplibre-gl";
 import proj4 from "proj4";
+import {
+  initPrograms,
+  loadWindImage,
+  createPoints,
+  getProgramLocations,
+  updateParticles,
+  drawParticles,
+  drawScreen,
+  drawFadedPreviousFrame,
+} from "./webgl";
 const imageBboxEPSG4326 = [-42, 40, 48, 80];
 const imageSizePixels = [1204, 1283];
 const imageBboxEPSG3857 = [
@@ -11,12 +21,6 @@ let windLookupOffset = [0, 0],
   windLookup2CanvasRatio = [0, 0];
 let running = true;
 
-import updatePositionVS from "./shaders/updatePositionVS.glsl";
-import drawParticlesVS from "./shaders/drawParticlesVS.glsl";
-import drawParticlesFS from "./shaders/drawParticlesFS.glsl";
-import screenFS from "./shaders/screenFS.glsl";
-import quadVS from "./shaders/quadVS.glsl";
-import updatePositionFS from "./shaders/updatePositionFS.glsl";
 import * as util from "./util";
 
 const canvas = document.querySelector("#c");
@@ -33,206 +37,6 @@ canvas.width = canvas.clientWidth * pxRatio;
 canvas.height = canvas.clientHeight * pxRatio;
 const fadeOpacity = 0.99;
 
-const initPrograms = (gl) => {
-  return {
-    updatePositionProgram: util.createProgram(
-      gl,
-      updatePositionVS,
-      updatePositionFS,
-      ["newPosition"]
-    ),
-    drawParticlesProgram: util.createProgram(
-      gl,
-      drawParticlesVS,
-      drawParticlesFS
-    ),
-    screenProgram: util.createProgram(gl, quadVS, screenFS),
-  };
-};
-
-const loadWindImage = async (gl, imgSrc) => {
-  const image = new Image();
-  image.src = imgSrc;
-  image.onload = function () {
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    // TODO move these somewhere from here
-    updatePositionAttributesAndUniforms.uniforms.imageSizePixels = [
-      image.width,
-      image.height,
-    ];
-    drawParticlesAttributesAndUniforms.uniforms.imageSizePixels = [
-      image.width,
-      image.height,
-    ];
-  };
-};
-
-const rand = (min, max) => {
-  if (max === undefined) {
-    max = min;
-    min = 0;
-  }
-  return Math.random() * (max - min) + min;
-};
-
-const createPoints = (num, ranges) =>
-  new Array(num)
-    .fill(0)
-    .map((_) => ranges.map((range) => rand(...range)))
-    .flat();
-/** Takes list of uniform locations
- *  and returns corresponding locations from WebGL side */
-const getLocations = (gl, program, locationStrings, isUniform = true) => {
-  const locations = {};
-  locationStrings.forEach((locationString) => {
-    locations[locationString] = isUniform
-      ? gl.getUniformLocation(program, locationString)
-      : gl.getAttribLocation(program, locationString);
-  });
-  return locations;
-};
-
-const getProgramLocations = (gl, program, locations) => {
-  return {
-    attributes: getLocations(
-      gl,
-      program,
-      Object.keys(locations.attributes),
-      false
-    ),
-    uniforms: getLocations(gl, program, Object.keys(locations.uniforms), true),
-  };
-};
-
-const setUniforms = (gl, program, locs, values) => {
-  gl.useProgram(program);
-  Object.keys(locs.uniforms).forEach((uniformString) => {
-    const loc = locs.uniforms[uniformString];
-    const val = values.uniforms[uniformString];
-    if (values.uniforms.length === 1) gl.uniform1f(loc, ...val);
-    else if (val.length === 2) gl.uniform2f(loc, ...val);
-    else if (val.length === 3) gl.uniform3f(loc, ...val);
-    else if (val.length === 4) gl.uniform4f(loc, ...val);
-    else if (val.length > 4) gl.uniformMatrix4fv(loc, false, val);
-    else if (val.toString().includes(".")) gl.uniform1f(loc, val);
-    else if (val.length !== 0) gl.uniform1i(loc, val);
-  });
-};
-
-const updateParticles = (
-  gl,
-  program,
-  locs,
-  values,
-  current,
-  newUniforms,
-  texture,
-  numParticles
-) => {
-  gl.useProgram(program);
-
-  gl.activeTexture(gl.TEXTURE3);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.bindVertexArray(current.updateVA);
-
-  updatePositionAttributesAndUniforms.uniforms = {
-    ...values.uniforms,
-    ...newUniforms,
-  };
-  setUniforms(gl, program, locs, values);
-
-  gl.enable(gl.RASTERIZER_DISCARD);
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, current.tf);
-  gl.beginTransformFeedback(gl.POINTS);
-
-  util.bindAndEnablePointer(
-    gl,
-    current.positionBuffer,
-    locs.attributes[0],
-    current.updateVA
-  );
-
-  gl.drawArrays(gl.POINTS, 0, numParticles);
-  gl.endTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-
-  gl.disable(gl.RASTERIZER_DISCARD);
-};
-
-const drawParticles = (
-  gl,
-  program,
-  locs,
-  values,
-  current,
-  newUniforms,
-  ramp
-) => {
-  gl.useProgram(program);
-  gl.bindVertexArray(current.drawVA);
-  values.uniforms = {
-    ...values.uniforms,
-    /*
-    running,
-    diff: windLookup2CanvasRatio,
-    windLookupOffset,
-    */
-    ...newUniforms,
-  };
-  setUniforms(gl, program, locs, values);
-
-  gl.activeTexture(gl.TEXTURE4);
-  gl.bindTexture(gl.TEXTURE_2D, ramp);
-
-  util.bindAndEnablePointer(
-    gl,
-    current.positionBuffer,
-    drawParticlesProgLocs.attributes.position,
-    current.drawVA
-  );
-  gl.drawArrays(gl.POINTS, 0, numParticles);
-};
-
-const drawFadedPreviousFrame = (
-  gl,
-  screenProgram,
-  screenProgLocs,
-  framebuffer,
-  current,
-  next,
-  running,
-  fadeOpacity,
-  quadBuffer
-) => {
-  util.bindFramebuffer(gl, framebuffer, current.texture);
-  util.drawTexture(
-    next.texture,
-    running ? fadeOpacity : 0.9,
-    quadBuffer,
-    screenProgram,
-    gl,
-    screenProgLocs
-  );
-};
-
-const drawScreen = (gl, screenProgram, screenProgLocs, current, quadBuffer) => {
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-  util.bindFramebuffer(gl, null);
-  util.drawTexture(
-    current.texture,
-    1.0,
-    quadBuffer,
-    screenProgram,
-    gl,
-    screenProgLocs
-  );
-  gl.disable(gl.BLEND);
-};
-
 const {
   updatePositionProgram,
   drawParticlesProgram,
@@ -241,7 +45,7 @@ const {
 
 const texture = gl.createTexture();
 
-loadWindImage(gl, "fresh.jpeg");
+loadWindImage(gl, "fresh.jpeg", texture);
 
 const updatePositionAttributesAndUniforms = {
   attributes: {
@@ -252,7 +56,7 @@ const updatePositionAttributesAndUniforms = {
     deltaTime: 0,
     windLookup: 3,
     jsSeed1: 0,
-    imageSizePixels: [],
+    imageSizePixels,
     windLookupOffset: [],
     diff: [],
   },
@@ -267,7 +71,7 @@ const drawParticlesAttributesAndUniforms = {
     windLookup: 3,
     canvasDimensions: [gl.canvas.width, gl.canvas.height],
     colorRamp: 4,
-    imageSizePixels: [],
+    imageSizePixels,
     windLookupOffset: [],
     running: 0,
     diff: [],
@@ -421,7 +225,8 @@ function render(time) {
       windLookupOffset,
       running,
     },
-    ramp
+    ramp,
+    numParticles
   );
 
   drawScreen(gl, screenProgram, screenProgLocs, current, quadBuffer);
@@ -444,7 +249,8 @@ const map = new Map({
         type: "vector",
         tiles: [
           //'https://projects.napuu.xyz/naturalearth/maps/land/{z}/{x}/{y}.pbf'
-          "http://192.168.1.228:29090/maps/land/{z}/{x}/{y}.pbf",
+          //"http://192.168.1.228:29090/maps/land/{z}/{x}/{y}.pbf",
+          "http://localhost:29090/maps/land/{z}/{x}/{y}.pbf",
         ],
         minzoom: 0,
         maxzoom: 6,
@@ -545,4 +351,5 @@ map.on("load", () => {
   updateLayerBounds(map.getBounds());
   requestAnimationFrame(render);
   map.fitBounds([-28, 65, 39, 65]);
+  console.log("loaded");
 });
