@@ -132,10 +132,10 @@ export function drawTexture(
   const program = screenProgram;
   gl.useProgram(program);
 
-  bindAttribute(gl, quadBuffer, screenProgLocs.a_pos, 2);
+  bindAttribute(gl, quadBuffer, screenProgLocs.attributes.a_pos, 2);
   bindTexture(gl, texture, 2);
-  gl.uniform1i(screenProgLocs.u_screen, 2);
-  gl.uniform1f(screenProgLocs.u_opacity, opacity);
+  gl.uniform1i(screenProgLocs.uniforms.u_screen, 2);
+  gl.uniform1f(screenProgLocs.uniforms.u_opacity, opacity);
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }

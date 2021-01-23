@@ -51,26 +51,22 @@ const initPrograms = (gl) => {
 };
 
 const loadWindImage = async (gl, imgSrc) => {
-  gl.activeTexture(gl.TEXTURE3);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    1,
-    1,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    new Uint8Array([0, 0, 0, 0])
-  );
-  var image = new Image();
+  const image = new Image();
   image.src = imgSrc;
   image.onload = function () {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
     gl.generateMipmap(gl.TEXTURE_2D);
+    // TODO move these somewhere from here
+    updatePositionAttributesAndUniforms.uniforms.imageSizePixels = [
+      image.width,
+      image.height,
+    ];
+    drawParticlesAttributesAndUniforms.uniforms.imageSizePixels = [
+      image.width,
+      image.height,
+    ];
   };
 };
 
@@ -86,180 +82,67 @@ const createPoints = (num, ranges) =>
   new Array(num)
     .fill(0)
     .map((_) => ranges.map((range) => rand(...range)))
-    .flat(); /* eslint-disable-line */
-
-/** Takes list of locations (=strings) assuming that the
-    first one is attribute and rest are uniforms,
-    returning proper locations */
-const getProgramLocations = (gl, program, locationStrings) => {
+    .flat();
+/** Takes list of uniform locations
+ *  and returns corresponding locations from WebGL side */
+const getLocations = (gl, program, locationStrings, isUniform = true) => {
   const locations = {};
-  locations[locationStrings[0]] = gl.getAttribLocation(
-    program,
-    locationStrings[0]
-  );
-  locationStrings.slice(1).forEach((locationString) => {
-    locations[locationString] = gl.getUniformLocation(program, locationString);
+  locationStrings.forEach((locationString) => {
+    locations[locationString] = isUniform
+      ? gl.getUniformLocation(program, locationString)
+      : gl.getAttribLocation(program, locationString);
   });
   return locations;
 };
 
-const {
-  updatePositionProgram,
-  drawParticlesProgram,
-  screenProgram,
-} = initPrograms(gl);
-
-const texture = gl.createTexture();
-
-loadWindImage(gl, "fresh.jpeg");
-
-const updatePositionAttribAndUniforms = {
-  oldPosition: [],
-  canvasDimensions: [],
-  deltaTime: 0,
-  windLookup: 0,
-  jsSeed1: 0,
-  imageSizePixels: [],
-  windLookupOffset: [],
-  diff: [],
+const getProgramLocations = (gl, program, locations) => {
+  return {
+    attributes: getLocations(
+      gl,
+      program,
+      Object.keys(locations.attributes),
+      false
+    ),
+    uniforms: getLocations(gl, program, Object.keys(locations.uniforms), true),
+  };
 };
 
-const drawParticlesAttribAndUniforms = {
-  position: [],
-  matrix: [],
-  windLookup: 0,
-  canvasDimensions: [],
-  colorRamp: 0,
-  imageSizePixels: [],
-  windLookupOffset: [],
-  running: 0,
-  diff: [],
+const setUniforms = (gl, program, locs, values) => {
+  gl.useProgram(program);
+  Object.keys(locs.uniforms).forEach((uniformString) => {
+    const loc = locs.uniforms[uniformString];
+    const val = values.uniforms[uniformString];
+    if (values.uniforms.length === 1) gl.uniform1f(loc, ...val);
+    else if (val.length === 2) gl.uniform2f(loc, ...val);
+    else if (val.length === 3) gl.uniform3f(loc, ...val);
+    else if (val.length === 4) gl.uniform4f(loc, ...val);
+    else if (val.length > 4) gl.uniformMatrix4fv(loc, false, val);
+    else if (val.toString().includes(".")) gl.uniform1f(loc, val);
+    else if (val.length !== 0) gl.uniform1i(loc, val);
+  });
 };
 
-const screenAttribAndUniforms = {
-  u_pos: [],
-  u_screen: 0,
-  u_opacity: 0,
-};
-
-const updatePositionProgLocs = getProgramLocations(
+const updateParticles = (
   gl,
-  updatePositionProgram,
-  Object.keys(updatePositionAttribAndUniforms)
-);
-const drawParticlesProgLocs = getProgramLocations(
-  gl,
-  drawParticlesProgram,
-  Object.keys(drawParticlesAttribAndUniforms)
-);
-const screenProgLocs = getProgramLocations(
-  gl,
-  screenProgram,
-  Object.keys(screenAttribAndUniforms)
-);
-
-const numParticles = 100000;
-const positions = new Float32Array(
-  createPoints(numParticles, [[canvas.width], [canvas.height]])
-);
-
-let position1Buffer = util.makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
-let position2Buffer = util.makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
-
-const updatePositionVA1 = util.makeVertexArray(
-  gl,
-  position1Buffer,
-  updatePositionProgLocs.oldPosition
-);
-
-const updatePositionVA2 = util.makeVertexArray(
-  gl,
-  position2Buffer,
-  updatePositionProgLocs.oldPosition
-);
-
-const drawVA1 = util.makeVertexArray(
-  gl,
-  position1Buffer,
-  drawParticlesProgLocs.position
-);
-const drawVA2 = util.makeVertexArray(
-  gl,
-  position2Buffer,
-  drawParticlesProgLocs.position
-);
-
-const tf1 = util.makeTransformFeedback(gl, position1Buffer);
-const tf2 = util.makeTransformFeedback(gl, position2Buffer);
-
-const framebuffer = gl.createFramebuffer();
-const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
-// screen textures to hold the drawn screen for the previous and the current frame
-let backgroundTexture = util.createTexture(
-  gl,
-  gl.NEAREST,
-  emptyPixels,
-  gl.canvas.width,
-  gl.canvas.height
-);
-let screenTexture = util.createTexture(
-  gl,
-  gl.NEAREST,
-  emptyPixels,
-  gl.canvas.width,
-  gl.canvas.height
-);
-
-let current = {
-  updateVA: updatePositionVA1, // read from position1
-  tf: tf2, // write to position2
-  drawVA: drawVA2, // draw with position2
-  index: 1,
-  positionBuffer: position1Buffer,
-  texture: screenTexture,
-};
-let next = {
-  updateVA: updatePositionVA2, // read from position2
-  tf: tf1, // write to position1
-  drawVA: drawVA1, // draw with position1
-  index: 2,
-  positionBuffer: position2Buffer,
-  texture: backgroundTexture,
-};
-
-let then = 0;
-const ramp = util.createTexture(gl, gl.LINEAR, util.getColorRamp(), 16, 16);
-const quadBuffer = util.createBuffer(
-  gl,
-  new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
-);
-function render(time) {
-  gl.disable(gl.DEPTH_TEST);
-  gl.disable(gl.STENCIL_TEST);
-
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  time *= 0.001;
-  // Subtract the previous time from the current time
-  const deltaTime = time - then;
-  // Remember the current time for the next frame.
-  then = time;
-
-  gl.useProgram(updatePositionProgram);
+  program,
+  locs,
+  values,
+  current,
+  newUniforms,
+  texture,
+  numParticles
+) => {
+  gl.useProgram(program);
 
   gl.activeTexture(gl.TEXTURE3);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.bindVertexArray(current.updateVA);
-  gl.uniform2f(
-    updatePositionProgLocs.canvasDimensions,
-    gl.canvas.width,
-    gl.canvas.height
-  );
-  gl.uniform1f(updatePositionProgLocs.deltaTime, deltaTime);
-  gl.uniform1i(updatePositionProgLocs.windLookup, 3);
-  gl.uniform1f(updatePositionProgLocs.jsSeed1, Math.random());
-  gl.uniform2f(updatePositionProgLocs.imageSizePixels, ...imageSizePixels);
-  gl.uniform2f(updatePositionProgLocs.windLookupOffset, ...windLookupOffset);
-  gl.uniform2f(updatePositionProgLocs.diff, ...windLookup2CanvasRatio);
+
+  updatePositionAttributesAndUniforms.uniforms = {
+    ...values.uniforms,
+    ...newUniforms,
+  };
+  setUniforms(gl, program, locs, values);
 
   gl.enable(gl.RASTERIZER_DISCARD);
   gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, current.tf);
@@ -268,7 +151,7 @@ function render(time) {
   util.bindAndEnablePointer(
     gl,
     current.positionBuffer,
-    updatePositionProgLocs.oldPosition,
+    locs.attributes[0],
     current.updateVA
   );
 
@@ -277,9 +160,54 @@ function render(time) {
   gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
 
   gl.disable(gl.RASTERIZER_DISCARD);
+};
 
+const drawParticles = (
+  gl,
+  program,
+  locs,
+  values,
+  current,
+  newUniforms,
+  ramp
+) => {
+  gl.useProgram(program);
+  gl.bindVertexArray(current.drawVA);
+  values.uniforms = {
+    ...values.uniforms,
+    /*
+    running,
+    diff: windLookup2CanvasRatio,
+    windLookupOffset,
+    */
+    ...newUniforms,
+  };
+  setUniforms(gl, program, locs, values);
+
+  gl.activeTexture(gl.TEXTURE4);
+  gl.bindTexture(gl.TEXTURE_2D, ramp);
+
+  util.bindAndEnablePointer(
+    gl,
+    current.positionBuffer,
+    drawParticlesProgLocs.attributes.position,
+    current.drawVA
+  );
+  gl.drawArrays(gl.POINTS, 0, numParticles);
+};
+
+const drawFadedPreviousFrame = (
+  gl,
+  screenProgram,
+  screenProgLocs,
+  framebuffer,
+  current,
+  next,
+  running,
+  fadeOpacity,
+  quadBuffer
+) => {
   util.bindFramebuffer(gl, framebuffer, current.texture);
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
   util.drawTexture(
     next.texture,
     running ? fadeOpacity : 0.9,
@@ -288,44 +216,9 @@ function render(time) {
     gl,
     screenProgLocs
   );
+};
 
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.useProgram(drawParticlesProgram);
-  gl.bindVertexArray(current.drawVA);
-  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-  gl.uniform1i(drawParticlesProgLocs.windLookup, 3);
-  gl.uniform2f(
-    drawParticlesProgLocs.canvasDimensions,
-    gl.canvas.width,
-    gl.canvas.height
-  );
-  gl.uniform2f(drawParticlesProgLocs.windLookupOffset, ...windLookupOffset);
-  gl.uniform2f(
-    drawParticlesProgLocs.imageSizePixels,
-    imageSizePixels[0],
-    imageSizePixels[1]
-  );
-  gl.uniform1i(drawParticlesProgLocs.running, running ? 1 : 0);
-  gl.uniform2f(drawParticlesProgLocs.diff, ...windLookup2CanvasRatio);
-
-  gl.activeTexture(gl.TEXTURE4);
-  gl.bindTexture(gl.TEXTURE_2D, ramp);
-  gl.uniform1i(drawParticlesProgLocs.colorRamp, 4);
-
-  gl.uniformMatrix4fv(
-    drawParticlesProgLocs.matrix,
-    false,
-    util.orthographic(0, gl.canvas.width, 0, gl.canvas.height, -1, 1)
-  );
-
-  util.bindAndEnablePointer(
-    gl,
-    current.positionBuffer,
-    drawParticlesProgLocs.position,
-    current.drawVA
-  );
-  gl.drawArrays(gl.POINTS, 0, numParticles);
-
+const drawScreen = (gl, screenProgram, screenProgLocs, current, quadBuffer) => {
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   util.bindFramebuffer(gl, null);
@@ -338,16 +231,206 @@ function render(time) {
     screenProgLocs
   );
   gl.disable(gl.BLEND);
+};
 
-  // swap which buffer we will read from
-  // and which one we will write to
-  const temp2 = current;
+const {
+  updatePositionProgram,
+  drawParticlesProgram,
+  screenProgram,
+} = initPrograms(gl);
+
+const texture = gl.createTexture();
+
+loadWindImage(gl, "fresh.jpeg");
+
+const updatePositionAttributesAndUniforms = {
+  attributes: {
+    oldPosition: [],
+  },
+  uniforms: {
+    canvasDimensions: [gl.canvas.width, gl.canvas.height],
+    deltaTime: 0,
+    windLookup: 3,
+    jsSeed1: 0,
+    imageSizePixels: [],
+    windLookupOffset: [],
+    diff: [],
+  },
+};
+
+const drawParticlesAttributesAndUniforms = {
+  attributes: {
+    position: [],
+  },
+  uniforms: {
+    matrix: util.orthographic(0, gl.canvas.width, 0, gl.canvas.height, -1, 1),
+    windLookup: 3,
+    canvasDimensions: [gl.canvas.width, gl.canvas.height],
+    colorRamp: 4,
+    imageSizePixels: [],
+    windLookupOffset: [],
+    running: 0,
+    diff: [],
+  },
+};
+
+const screenAttributesAndUniforms = {
+  attributes: {
+    a_pos: [],
+  },
+  uniforms: {
+    u_screen: 0,
+    u_opacity: 0,
+  },
+};
+
+const updatePositionProgLocs = getProgramLocations(
+  gl,
+  updatePositionProgram,
+  updatePositionAttributesAndUniforms
+);
+const drawParticlesProgLocs = getProgramLocations(
+  gl,
+  drawParticlesProgram,
+  drawParticlesAttributesAndUniforms
+);
+const screenProgLocs = getProgramLocations(
+  gl,
+  screenProgram,
+  screenAttributesAndUniforms
+);
+
+const numParticles = 100000;
+const positions = new Float32Array(
+  createPoints(numParticles, [[canvas.width], [canvas.height]])
+);
+
+const position1Buffer = util.makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
+const position2Buffer = util.makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
+
+const updatePositionVA1 = util.makeVertexArray(
+  gl,
+  position1Buffer,
+  updatePositionProgLocs.attributes.oldPosition
+);
+
+const updatePositionVA2 = util.makeVertexArray(
+  gl,
+  position2Buffer,
+  updatePositionProgLocs.attributes.oldPosition
+);
+
+const drawVA1 = util.makeVertexArray(
+  gl,
+  position1Buffer,
+  drawParticlesProgLocs.attributes.position
+);
+const drawVA2 = util.makeVertexArray(
+  gl,
+  position2Buffer,
+  drawParticlesProgLocs.attributes.position
+);
+
+const tf1 = util.makeTransformFeedback(gl, position1Buffer);
+const tf2 = util.makeTransformFeedback(gl, position2Buffer);
+
+const framebuffer = gl.createFramebuffer();
+const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+// screen textures to hold the drawn screen for the previous and the current frame
+const texture1 = util.createTexture(
+  gl,
+  gl.NEAREST,
+  emptyPixels,
+  gl.canvas.width,
+  gl.canvas.height
+);
+const texture2 = util.createTexture(
+  gl,
+  gl.NEAREST,
+  emptyPixels,
+  gl.canvas.width,
+  gl.canvas.height
+);
+
+let current = {
+  updateVA: updatePositionVA1, // read from position1
+  tf: tf2, // write to position2
+  drawVA: drawVA2, // draw with position2
+  positionBuffer: position1Buffer,
+  texture: texture1,
+};
+let next = {
+  updateVA: updatePositionVA2, // read from position2
+  tf: tf1, // write to position1
+  drawVA: drawVA1, // draw with position1
+  positionBuffer: position2Buffer,
+  texture: texture2,
+};
+
+const ramp = util.createTexture(gl, gl.LINEAR, util.getColorRamp(), 16, 16);
+const quadBuffer = util.createBuffer(
+  gl,
+  new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
+);
+
+let then = 0;
+function render(time) {
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  time *= 0.001;
+
+  const deltaTime = time - then;
+
+  then = time;
+
+  updateParticles(
+    gl,
+    updatePositionProgram,
+    updatePositionProgLocs,
+    updatePositionAttributesAndUniforms,
+    current,
+    {
+      jsSeed1: Math.random(),
+      diff: windLookup2CanvasRatio,
+      windLookupOffset,
+      deltaTime,
+    },
+    texture,
+    numParticles
+  );
+
+  drawFadedPreviousFrame(
+    gl,
+    screenProgram,
+    screenProgLocs,
+    framebuffer,
+    current,
+    next,
+    running,
+    fadeOpacity,
+    quadBuffer
+  );
+
+  drawParticles(
+    gl,
+    drawParticlesProgram,
+    drawParticlesProgLocs,
+    drawParticlesAttributesAndUniforms,
+    current,
+    {
+      diff: windLookup2CanvasRatio,
+      windLookupOffset,
+      running,
+    },
+    ramp
+  );
+
+  drawScreen(gl, screenProgram, screenProgLocs, current, quadBuffer);
+
+  // swap buffers, transformfeedbacks etc.
+  const temp = current;
   current = next;
-  next = temp2;
+  next = temp;
 
-  /*const temp3 = backgroundTexture;
-    backgroundTexture = screenTexture;
-    screenTexture = temp3;*/
   requestAnimationFrame(render);
 }
 const map = new Map({
