@@ -22,16 +22,12 @@ export const createScreenProgram = (gl) => {
 
 export const initPrograms = (gl) => {
   const temp = {
-
     updatePositionProgram: {
-      program: util.createProgram(
-        gl,
-        updatePositionVS,
-        updatePositionFS,
-        ["newPosition"]
-      ),
+      program: util.createProgram(gl, updatePositionVS, updatePositionFS, [
+        "newPosition",
+      ]),
       attributes: {
-        oldPosition: []
+        oldPosition: [],
       },
       uniforms: {
         canvasDimensions: [],
@@ -45,11 +41,7 @@ export const initPrograms = (gl) => {
     },
 
     drawParticlesProgram: {
-      program: util.createProgram(
-        gl,
-        drawParticlesVS,
-        drawParticlesFS
-      ),
+      program: util.createProgram(gl, drawParticlesVS, drawParticlesFS),
       attributes: {
         position: [],
       },
@@ -74,24 +66,20 @@ export const initPrograms = (gl) => {
         u_screen: 0,
         u_opacity: 0,
       },
-    }
+    },
   };
 
   temp.updatePositionProgram.locations = getProgramLocations(
     gl,
     temp.updatePositionProgram
-  )
+  );
   temp.drawParticlesProgram.locations = getProgramLocations(
     gl,
     temp.drawParticlesProgram
-  )
-  temp.screenProgram.locations = getProgramLocations(
-    gl,
-    temp.screenProgram
-  )
+  );
+  temp.screenProgram.locations = getProgramLocations(gl, temp.screenProgram);
   return temp;
 };
-
 
 export const loadWindImage = async (gl, imgSrc, texture) => {
   const image = new Image();
@@ -143,7 +131,6 @@ export const getProgramLocations = (gl, container) => {
   };
 };
 
-
 const setUniforms = (gl, program, locs, values) => {
   gl.useProgram(program);
   Object.keys(locs.uniforms).forEach((uniformString) => {
@@ -192,28 +179,11 @@ export const updateParticles = (
   gl.disable(gl.RASTERIZER_DISCARD);
 };
 
-export const drawParticles = (
-  gl,
-  program,
-  locs,
-  values,
-  current,
-  newUniforms,
-  ramp,
-  numParticles
-) => {
-  gl.useProgram(program);
+export const drawParticles = (gl, container, current, ramp, numParticles) => {
+  gl.useProgram(container.program);
   gl.bindVertexArray(current.drawVA);
-  values.uniforms = {
-    ...values.uniforms,
-    /*
-    running,
-    diff: windLookup2CanvasRatio,
-    windLookupOffset,
-    */
-    ...newUniforms,
-  };
-  setUniforms(gl, program, locs, values);
+
+  setUniforms(gl, container.program, container.locations, container);
 
   gl.activeTexture(gl.TEXTURE4);
   gl.bindTexture(gl.TEXTURE_2D, ramp);
@@ -221,7 +191,7 @@ export const drawParticles = (
   util.bindAndEnablePointer(
     gl,
     current.positionBuffer,
-    values.position,
+    container.attributes.position,
     current.drawVA
   );
   gl.drawArrays(gl.POINTS, 0, numParticles);
@@ -229,8 +199,7 @@ export const drawParticles = (
 
 export const drawFadedPreviousFrame = (
   gl,
-  screenProgram,
-  screenProgLocs,
+  container,
   framebuffer,
   current,
   next,
@@ -238,24 +207,18 @@ export const drawFadedPreviousFrame = (
   fadeOpacity,
   quadBuffer
 ) => {
-  util.bindFramebuffer(gl, framebuffer, current.texture);
+  util.bindFramebuffer(gl, framebuffer, next.texture);
   util.drawTexture(
-    next.texture,
+    current.texture,
     running ? fadeOpacity : 0.8,
     quadBuffer,
-    screenProgram,
+    container.program,
     gl,
-    screenProgLocs
+    container.locations
   );
 };
 
-export const drawScreen = (
-  gl,
-  screenProgram,
-  screenProgLocs,
-  current,
-  quadBuffer
-) => {
+export const drawScreen = (gl, container, current, quadBuffer) => {
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   util.bindFramebuffer(gl, null);
@@ -263,9 +226,9 @@ export const drawScreen = (
     current.texture,
     1.0,
     quadBuffer,
-    screenProgram,
+    container.program,
     gl,
-    screenProgLocs
+    container.locations
   );
   gl.disable(gl.BLEND);
 };
@@ -289,7 +252,7 @@ export const initState = (gl, numParticles) => {
         emptyPixels,
         gl.canvas.width,
         gl.canvas.height
-      )
+      ),
     },
     next: {
       updateVA: gl.createVertexArray(),
@@ -302,7 +265,7 @@ export const initState = (gl, numParticles) => {
         emptyPixels,
         gl.canvas.width,
         gl.canvas.height
-      )
-    }
-  }
-}
+      ),
+    },
+  };
+};

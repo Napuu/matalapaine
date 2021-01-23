@@ -43,17 +43,30 @@ const windTexture = gl.createTexture();
 
 loadWindImage(gl, "fresh.jpeg", windTexture);
 
-updatePositionProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
+updatePositionProgram.uniforms.canvasDimensions = [
+  gl.canvas.width,
+  gl.canvas.height,
+];
 updatePositionProgram.uniforms.windLookup = 3;
 updatePositionProgram.uniforms.imageSizePixels = imageSizePixels;
 
-drawParticlesProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
-drawParticlesProgram.uniforms.matrix = util.orthographic(0, gl.canvas.width, 0, gl.canvas.height, -1, 1);
+drawParticlesProgram.uniforms.canvasDimensions = [
+  gl.canvas.width,
+  gl.canvas.height,
+];
+drawParticlesProgram.uniforms.matrix = util.orthographic(
+  0,
+  gl.canvas.width,
+  0,
+  gl.canvas.height,
+  -1,
+  1
+);
 drawParticlesProgram.uniforms.windLookup = 3;
 drawParticlesProgram.uniforms.colorRamp = 4;
 drawParticlesProgram.uniforms.imageSizePixels = imageSizePixels;
 
-const numParticles = 20000;
+const numParticles = 100000;
 
 // state here contains
 // - vertex arrays for updating and drawing
@@ -62,6 +75,7 @@ const numParticles = 20000;
 let { current, next } = initState(gl, numParticles);
 
 const framebuffer = gl.createFramebuffer();
+// TODO move ramp creation to somewhere else
 const ramp = util.createTexture(gl, gl.LINEAR, util.getColorRamp(), 16, 16);
 const quadBuffer = util.createBuffer(
   gl,
@@ -78,7 +92,6 @@ function render(time) {
 
   updatePositionProgram.uniforms.jsSeed1 = Math.random();
   updatePositionProgram.uniforms.deltaTime = deltaTime;
-
   updateParticles(
     gl,
     updatePositionProgram,
@@ -89,8 +102,7 @@ function render(time) {
 
   drawFadedPreviousFrame(
     gl,
-    screenProgram.program,
-    screenProgram.locations,
+    screenProgram,
     framebuffer,
     current,
     next,
@@ -99,22 +111,10 @@ function render(time) {
     quadBuffer
   );
 
-  drawParticles(
-    gl,
-    drawParticlesProgram.program,
-    drawParticlesProgram.locations,
-    drawParticlesProgram,
-    current,
-    {
-      diff: windLookup2CanvasRatio,
-      windLookupOffset,
-      running,
-    },
-    ramp,
-    numParticles
-  );
+  drawParticlesProgram.uniforms.running = running;
+  drawParticles(gl, drawParticlesProgram, current, ramp, numParticles);
 
-  drawScreen(gl, screenProgram.program, screenProgram.locations, current, quadBuffer);
+  drawScreen(gl, screenProgram, current, quadBuffer);
 
   // swap buffers, transformfeedbacks etc.
   const temp = current;
@@ -199,9 +199,12 @@ const updateLayerBounds = (b) => {
   ];
   updatePositionProgram.uniforms.diff = windLookup2CanvasRatio;
   updatePositionProgram.uniforms.windLookupOffset = windLookupOffset;
+  drawParticlesProgram.uniforms.diff = windLookup2CanvasRatio;
+  drawParticlesProgram.uniforms.windLookupOffset = windLookupOffset;
 };
 
 window.onresize = () => {
+  // TODO add proper reset function that is called on resizing + loading
   console.log("???? hello");
   canvas.width = canvas.clientWidth * pxRatio;
   canvas.height = canvas.clientHeight * pxRatio;
