@@ -21,21 +21,77 @@ export const createScreenProgram = (gl) => {
 };
 
 export const initPrograms = (gl) => {
-  return {
-    updatePositionProgram: util.createProgram(
-      gl,
-      updatePositionVS,
-      updatePositionFS,
-      ["newPosition"]
-    ),
-    drawParticlesProgram: util.createProgram(
-      gl,
-      drawParticlesVS,
-      drawParticlesFS
-    ),
-    screenProgram: util.createProgram(gl, quadVS, screenFS),
+  const temp = {
+
+    updatePositionProgram: {
+      program: util.createProgram(
+        gl,
+        updatePositionVS,
+        updatePositionFS,
+        ["newPosition"]
+      ),
+      attributes: {
+        oldPosition: []
+      },
+      uniforms: {
+        canvasDimensions: [],
+        deltaTime: 0,
+        windLookup: 0,
+        jsSeed1: 0,
+        imageSizePixels: [],
+        windLookupOffset: [],
+        diff: [],
+      },
+    },
+
+    drawParticlesProgram: {
+      program: util.createProgram(
+        gl,
+        drawParticlesVS,
+        drawParticlesFS
+      ),
+      attributes: {
+        position: [],
+      },
+      uniforms: {
+        matrix: [],
+        windLookup: 0,
+        canvasDimensions: [],
+        colorRamp: 0,
+        imageSizePixels: [],
+        windLookupOffset: [],
+        running: 0,
+        diff: [],
+      },
+    },
+
+    screenProgram: {
+      program: util.createProgram(gl, quadVS, screenFS),
+      attributes: {
+        a_pos: [],
+      },
+      uniforms: {
+        u_screen: 0,
+        u_opacity: 0,
+      },
+    }
   };
+
+  temp.updatePositionProgram.locations = getProgramLocations(
+    gl,
+    temp.updatePositionProgram
+  )
+  temp.drawParticlesProgram.locations = getProgramLocations(
+    gl,
+    temp.drawParticlesProgram
+  )
+  temp.screenProgram.locations = getProgramLocations(
+    gl,
+    temp.screenProgram
+  )
+  return temp;
 };
+
 
 export const loadWindImage = async (gl, imgSrc, texture) => {
   const image = new Image();
@@ -74,17 +130,19 @@ const getLocations = (gl, program, locationStrings, isUniform = true) => {
   return locations;
 };
 
-export const getProgramLocations = (gl, program, locations) => {
+export const getProgramLocations = (gl, container) => {
+  const program = container.program;
   return {
     attributes: getLocations(
       gl,
       program,
-      Object.keys(locations.attributes),
+      Object.keys(container.attributes),
       false
     ),
-    uniforms: getLocations(gl, program, Object.keys(locations.uniforms), true),
+    uniforms: getLocations(gl, program, Object.keys(container.uniforms), true),
   };
 };
+
 
 const setUniforms = (gl, program, locs, values) => {
   gl.useProgram(program);
@@ -103,25 +161,18 @@ const setUniforms = (gl, program, locs, values) => {
 
 export const updateParticles = (
   gl,
-  program,
-  locs,
-  values,
+  container,
   current,
-  newUniforms,
   texture,
   numParticles
 ) => {
-  gl.useProgram(program);
+  gl.useProgram(container.program);
 
   gl.activeTexture(gl.TEXTURE3);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.bindVertexArray(current.updateVA);
 
-  values.uniforms = {
-    ...values.uniforms,
-    ...newUniforms,
-  };
-  setUniforms(gl, program, locs, values);
+  setUniforms(gl, container.program, container.locations, container);
 
   gl.enable(gl.RASTERIZER_DISCARD);
   gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, current.tf);
@@ -130,34 +181,7 @@ export const updateParticles = (
   util.bindAndEnablePointer(
     gl,
     current.positionBuffer,
-    locs.attributes[0],
-    current.updateVA
-  );
-
-  gl.drawArrays(gl.POINTS, 0, numParticles);
-  gl.endTransformFeedback();
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
-
-  gl.disable(gl.RASTERIZER_DISCARD);
-};
-
-export const updateParticles2 = (gl, state) => {
-  gl.useProgram(state.updateProgramContainer.program);
-
-  gl.activeTexture(gl.TEXTURE3);
-  gl.bindTexture(gl.TEXTURE_2D, c.texture);
-  gl.bindVertexArray(c.current.updateVA);
-
-  setUniforms(gl, state.updateProgramContainer.program, locs, values);
-
-  gl.enable(gl.RASTERIZER_DISCARD);
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, current.tf);
-  gl.beginTransformFeedback(gl.POINTS);
-
-  util.bindAndEnablePointer(
-    gl,
-    current.positionBuffer,
-    locs.attributes[0],
+    container.attributes.oldPosition,
     current.updateVA
   );
 
@@ -245,3 +269,40 @@ export const drawScreen = (
   );
   gl.disable(gl.BLEND);
 };
+
+export const initState = (gl, numParticles) => {
+  const positions = new Float32Array(
+    createPoints(numParticles, [[gl.canvas.width], [gl.canvas.height]])
+  );
+  const position1Buffer = util.makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
+  const position2Buffer = util.makeBuffer(gl, positions, gl.DYNAMIC_DRAW);
+  const emptyPixels = new Uint8Array(gl.canvas.width * gl.canvas.height * 4);
+  return {
+    current: {
+      updateVA: gl.createVertexArray(),
+      drawVA: gl.createVertexArray(),
+      tf: util.makeTransformFeedback(gl, position2Buffer),
+      positionBuffer: position1Buffer,
+      texture: util.createTexture(
+        gl,
+        gl.NEAREST,
+        emptyPixels,
+        gl.canvas.width,
+        gl.canvas.height
+      )
+    },
+    next: {
+      updateVA: gl.createVertexArray(),
+      drawVA: gl.createVertexArray(),
+      tf: util.makeTransformFeedback(gl, position1Buffer),
+      positionBuffer: position2Buffer,
+      texture: util.createTexture(
+        gl,
+        gl.NEAREST,
+        emptyPixels,
+        gl.canvas.width,
+        gl.canvas.height
+      )
+    }
+  }
+}
