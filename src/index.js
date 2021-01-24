@@ -1,4 +1,8 @@
 import { Map } from "maplibre-gl";
+import { h, Component, render as preactRender } from "preact";
+import { useEffect, useState } from 'preact/hooks'
+
+import htm from "htm";
 import {
   initPrograms,
   loadWindImage,
@@ -29,9 +33,12 @@ import * as util from "./util";
 
   // load initial wind texture
   const windTexture = gl.createTexture();
-  const imageSpecs = await loadWindImage(gl, "fresh.jpeg", windTexture);
+  let imageSpecs;
+  /*
+  const imageSpecs = await loadWindImage(gl, "/filut/2021-01-23T13:00:00.jpeg", windTexture);
   updateProgram.uniforms.imageSizePixels = imageSpecs.size;
   drawProgram.uniforms.imageSizePixels = imageSpecs.size;
+*/
 
   // initial state of animation
   let state = resetAnimation(
@@ -73,6 +80,61 @@ import * as util from "./util";
     }
     requestAnimationFrame(render);
   };
+
+
+
+  // Initialize htm with Preact
+  const html = htm.bind(h);
+
+  const getDefaultDate = () => {
+    const t = new Date();
+    t.setDate(23);
+    t.setHours(t.getHours());
+    //            |
+    // 2021-01-23T13:00:00
+    const d = t.toISOString().slice(0, 13);
+    return `${d}:00:00`;
+  }
+  const stepDate = (date, hours) => {
+    const t = new Date(date);
+    t.setHours(t.getHours() + hours + 2);
+    const d = t.toISOString().slice(0, 13);
+    return `${d}:00:00`;
+  }
+  function App (props) {
+    const [date, setDate] = useState(getDefaultDate())
+    const incrementDate = () => {
+      setDate(stepDate(date, 1));
+    }
+    const decrementDate = () => {
+      setDate(stepDate(date, -1));
+    }
+    useEffect(async () => {
+      console.log(date);
+      imageSpecs = await loadWindImage(gl, "/filut/" + date + ".jpeg", windTexture);
+      updateProgram.uniforms.imageSizePixels = imageSpecs.size;
+      drawProgram.uniforms.imageSizePixels = imageSpecs.size;
+      state = resetAnimation(
+        gl,
+        canvas,
+        pxRatio,
+        numParticles,
+        drawProgram,
+        updateProgram
+      );
+    }, [date])
+    useEffect(async () => {
+    }, []);
+    return html`
+    <p>
+      <h1>
+        ${date}
+      </h1>
+      <button onClick=${decrementDate}>-1</button>
+      <button onClick=${incrementDate}>+1</button>
+    </p>`;
+  }
+  preactRender(html`<${App} name="World" />`, document.querySelector("#controls"));
 
   const map = new Map({
     container: "map",
@@ -154,7 +216,7 @@ import * as util from "./util";
 
   window.onresize = () => {
     console.debug("resize triggered");
-    const newState = resetAnimation(
+    state = resetAnimation(
       gl,
       canvas,
       pxRatio,
@@ -162,8 +224,6 @@ import * as util from "./util";
       drawProgram,
       updateProgram
     );
-    current = newState.current;
-    next = newState.next;
     updateLayerBounds(
       gl,
       map.getBounds(),
