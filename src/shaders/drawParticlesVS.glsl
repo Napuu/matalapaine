@@ -10,7 +10,6 @@ uniform sampler2D windLookup;
 uniform vec2 windLookupOffset;
 uniform vec2 imageSizePixels;
 uniform vec2 diff;
-uniform int running;
 
 uniform sampler2D colorRamp;
 vec2 ext2img(float x, float y) {
@@ -45,7 +44,7 @@ void main() {
   windColor = texture(colorRamp, ramp_pos);
   windColor[3] = 0.8;
   vec4 invisible = vec4(0., 0., 0., 0.);
-  if (running == 0 || lookuppos.y > 1. || lookuppos.y < 0. || lookuppos.x > 1. || lookuppos.x < 0.) {
+  if (lookuppos.y > 1. || lookuppos.y < 0. || lookuppos.x > 1. || lookuppos.x < 0.) {
     windColor = invisible;
   }
   gl_Position = matrix * position;

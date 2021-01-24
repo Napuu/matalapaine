@@ -12,7 +12,7 @@ uniform vec2 diff;
 out vec2 newPosition;
 
 uniform sampler2D windLookup;
-uniform float jsSeed1;
+uniform float seed;
 
 const vec3 rand_constants = vec3(12.9898, 78.233, 4375.85453);
 float rand(const vec2 co) {
@@ -41,14 +41,14 @@ void main() {
   lookuppos.y = 1. - lookuppos.y;
   vec4 windspeed = texture(windLookup, lookuppos);
   windspeed -= 0.5;
-  vec2 seed1 = lookuppos * jsSeed1;
+  vec2 seed1 = lookuppos * seed;
   float windspeedmeters = length(windspeed.xy);
-  float reset = step(.99 - windspeedmeters * 0.05, gold_noise(oldPosition, jsSeed1));
+  float reset = step(.99 - windspeedmeters * 0.05, gold_noise(oldPosition, seed));
   windspeed *= 100.;
   vec2 temp = oldPosition + windspeed.xy * deltaTime * 5.0;
-  // if degeneration continues, replacing jsSeed1 below with seed3 worked earlier
+  // if degeneration continues, replacing seed below with seed3 worked earlier
   float seed3 = fract(deltaTime);
-  vec2 randPos2 = randPos(jsSeed1, oldPosition * seed3);
+  vec2 randPos2 = randPos(seed, oldPosition * seed3);
   //vec2 randPos2 = vec
   newPosition = mix(temp, randPos2, reset);
 }

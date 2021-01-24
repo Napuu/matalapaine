@@ -32,8 +32,8 @@ export const initPrograms = (gl) => {
       uniforms: {
         canvasDimensions: [],
         deltaTime: 0,
-        windLookup: 0,
-        jsSeed1: 0,
+        windLookup: 3,
+        seed: 0,
         imageSizePixels: [],
         windLookupOffset: [],
         diff: [],
@@ -47,12 +47,11 @@ export const initPrograms = (gl) => {
       },
       uniforms: {
         matrix: [],
-        windLookup: 0,
+        windLookup: 3,
         canvasDimensions: [],
-        colorRamp: 0,
+        colorRamp: 4,
         imageSizePixels: [],
         windLookupOffset: [],
-        running: 0,
         diff: [],
       },
     },
@@ -82,15 +81,28 @@ export const initPrograms = (gl) => {
 };
 
 export const loadWindImage = async (gl, imgSrc, texture) => {
-  const image = new Image();
-  image.src = imgSrc;
-  image.onload = function () {
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    // TODO move these somewhere from here
-  };
+  return new Promise(async (resolve, _reject) => {
+    const metadata = await (await fetch(imgSrc + ".meta")).text();
+    const image = new Image();
+    image.src = imgSrc;
+    image.onload = function () {
+      gl.activeTexture(gl.TEXTURE3);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        image
+      );
+      gl.generateMipmap(gl.TEXTURE_2D);
+      resolve({
+        bbox: metadata.split(" ").map((a) => parseFloat(a)),
+        size: [image.width, image.height]
+      });
+    };
+  });
 };
 
 const rand = (min, max) => {
@@ -203,14 +215,13 @@ export const drawFadedPreviousFrame = (
   framebuffer,
   current,
   next,
-  running,
   fadeOpacity,
   quadBuffer
 ) => {
   util.bindFramebuffer(gl, framebuffer, next.texture);
   util.drawTexture(
     current.texture,
-    running ? fadeOpacity : 0.8,
+    fadeOpacity,
     quadBuffer,
     container.program,
     gl,
@@ -219,8 +230,6 @@ export const drawFadedPreviousFrame = (
 };
 
 export const drawScreen = (gl, container, current, quadBuffer) => {
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   util.bindFramebuffer(gl, null);
   util.drawTexture(
     current.texture,
@@ -230,7 +239,6 @@ export const drawScreen = (gl, container, current, quadBuffer) => {
     gl,
     container.locations
   );
-  gl.disable(gl.BLEND);
 };
 
 export const initState = (gl, numParticles) => {
@@ -267,5 +275,29 @@ export const initState = (gl, numParticles) => {
         gl.canvas.height
       ),
     },
+    framebuffer: gl.createFramebuffer(),
   };
+};
+
+export const resetAnimation = (
+  gl,
+  canvas,
+  pxRatio,
+  numParticles,
+  drawProgram,
+  updateProgram
+) => {
+  gl.canvas.width = canvas.clientWidth * pxRatio;
+  gl.canvas.height = canvas.clientHeight * pxRatio;
+  updateProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
+  drawProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
+  drawProgram.uniforms.matrix = util.orthographic(
+    0,
+    gl.canvas.width,
+    0,
+    gl.canvas.height,
+    -1,
+    1
+  );
+  return initState(gl, numParticles);
 };
