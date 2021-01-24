@@ -4,6 +4,7 @@ import drawParticlesFS from "./shaders/drawParticlesFS.glsl";
 import screenFS from "./shaders/screenFS.glsl";
 import quadVS from "./shaders/quadVS.glsl";
 import updatePositionFS from "./shaders/updatePositionFS.glsl";
+import proj4 from "proj4";
 import * as util from "./util";
 
 export const createUpdateProgram = (gl) => {
@@ -22,7 +23,7 @@ export const createScreenProgram = (gl) => {
 
 export const initPrograms = (gl) => {
   const temp = {
-    updatePositionProgram: {
+    updateProgram: {
       program: util.createProgram(gl, updatePositionVS, updatePositionFS, [
         "newPosition",
       ]),
@@ -30,17 +31,17 @@ export const initPrograms = (gl) => {
         oldPosition: [],
       },
       uniforms: {
-        canvasDimensions: [],
+        canvasDimensions: [1, 1],
         deltaTime: 0,
         windLookup: 3,
         seed: 0,
-        imageSizePixels: [],
-        windLookupOffset: [],
-        diff: [],
+        imageSizePixels: [1, 1],
+        windLookupOffset: [1, 1],
+        windLookup2CanvasRatio: [1, 1],
       },
     },
 
-    drawParticlesProgram: {
+    drawProgram: {
       program: util.createProgram(gl, drawParticlesVS, drawParticlesFS),
       attributes: {
         position: [],
@@ -48,11 +49,11 @@ export const initPrograms = (gl) => {
       uniforms: {
         matrix: [],
         windLookup: 3,
-        canvasDimensions: [],
+        canvasDimensions: [1, 1],
         colorRamp: 4,
-        imageSizePixels: [],
-        windLookupOffset: [],
-        diff: [],
+        imageSizePixels: [1, 1],
+        windLookupOffset: [1, 1],
+        windLookup2CanvasRatio: [1, 1],
       },
     },
 
@@ -68,14 +69,8 @@ export const initPrograms = (gl) => {
     },
   };
 
-  temp.updatePositionProgram.locations = getProgramLocations(
-    gl,
-    temp.updatePositionProgram
-  );
-  temp.drawParticlesProgram.locations = getProgramLocations(
-    gl,
-    temp.drawParticlesProgram
-  );
+  temp.updateProgram.locations = getProgramLocations(gl, temp.updateProgram);
+  temp.drawProgram.locations = getProgramLocations(gl, temp.drawProgram);
   temp.screenProgram.locations = getProgramLocations(gl, temp.screenProgram);
   return temp;
 };
@@ -97,9 +92,14 @@ export const loadWindImage = async (gl, imgSrc, texture) => {
         image
       );
       gl.generateMipmap(gl.TEXTURE_2D);
+      const bbox4326 = metadata.split(" ").map((a) => parseFloat(a));
       resolve({
-        bbox: metadata.split(" ").map((a) => parseFloat(a)),
-        size: [image.width, image.height]
+        bbox4326,
+        bbox3857: [
+          ...proj4("EPSG:3857", bbox4326.slice(0, 2)),
+          ...proj4("EPSG:3857", bbox4326.slice(2)),
+        ],
+        size: [image.width, image.height],
       });
     };
   });
@@ -153,88 +153,74 @@ const setUniforms = (gl, program, locs, values) => {
     else if (val.length === 3) gl.uniform3f(loc, ...val);
     else if (val.length === 4) gl.uniform4f(loc, ...val);
     else if (val.length > 4) gl.uniformMatrix4fv(loc, false, val);
-    else if (val.toString().includes(".")) gl.uniform1f(loc, val);
-    else if (val.length !== 0) gl.uniform1i(loc, val);
+    else if (Number.isInteger(val)) gl.uniform1i(loc, val);
+    else gl.uniform1f(loc, val);
   });
 };
 
-export const updateParticles = (
-  gl,
-  container,
-  current,
-  texture,
-  numParticles
-) => {
+export const updateParticles = (gl, container, state, texture) => {
   gl.useProgram(container.program);
 
   gl.activeTexture(gl.TEXTURE3);
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.bindVertexArray(current.updateVA);
+  gl.bindVertexArray(state.current.updateVA);
 
   setUniforms(gl, container.program, container.locations, container);
 
   gl.enable(gl.RASTERIZER_DISCARD);
-  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, current.tf);
+  gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, state.current.tf);
   gl.beginTransformFeedback(gl.POINTS);
 
   util.bindAndEnablePointer(
     gl,
-    current.positionBuffer,
+    state.current.positionBuffer,
     container.attributes.oldPosition,
-    current.updateVA
+    state.current.updateVA
   );
 
-  gl.drawArrays(gl.POINTS, 0, numParticles);
+  gl.drawArrays(gl.POINTS, 0, state.numParticles);
   gl.endTransformFeedback();
   gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
 
   gl.disable(gl.RASTERIZER_DISCARD);
 };
 
-export const drawParticles = (gl, container, current, ramp, numParticles) => {
+export const drawParticles = (gl, container, state) => {
   gl.useProgram(container.program);
-  gl.bindVertexArray(current.drawVA);
+  gl.bindVertexArray(state.current.drawVA);
 
   setUniforms(gl, container.program, container.locations, container);
 
   gl.activeTexture(gl.TEXTURE4);
-  gl.bindTexture(gl.TEXTURE_2D, ramp);
+  gl.bindTexture(gl.TEXTURE_2D, state.colorRamp);
 
   util.bindAndEnablePointer(
     gl,
-    current.positionBuffer,
+    state.current.positionBuffer,
     container.attributes.position,
-    current.drawVA
+    state.current.drawVA
   );
-  gl.drawArrays(gl.POINTS, 0, numParticles);
+  gl.drawArrays(gl.POINTS, 0, state.numParticles);
 };
 
-export const drawFadedPreviousFrame = (
-  gl,
-  container,
-  framebuffer,
-  current,
-  next,
-  fadeOpacity,
-  quadBuffer
-) => {
-  util.bindFramebuffer(gl, framebuffer, next.texture);
+export const drawFadedPreviousFrame = (gl, container, state) => {
+  util.bindFramebuffer(gl, state.framebuffer, state.next.texture);
   util.drawTexture(
-    current.texture,
-    fadeOpacity,
-    quadBuffer,
+    state.current.texture,
+    0.99,
+    state.quadBuffer,
     container.program,
     gl,
     container.locations
   );
 };
 
-export const drawScreen = (gl, container, current, quadBuffer) => {
+export const drawScreen = (gl, container, state) => {
   util.bindFramebuffer(gl, null);
   util.drawTexture(
-    current.texture,
+    state.current.texture,
     1.0,
-    quadBuffer,
+    state.quadBuffer,
     container.program,
     gl,
     container.locations
@@ -276,6 +262,13 @@ export const initState = (gl, numParticles) => {
       ),
     },
     framebuffer: gl.createFramebuffer(),
+    colorRamp: util.createTexture(gl, gl.LINEAR, util.getColorRamp(), 16, 16),
+    quadBuffer: util.createBuffer(
+      gl,
+      new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
+    ),
+    numParticles: 20000,
+    running: true,
   };
 };
 
@@ -300,4 +293,36 @@ export const resetAnimation = (
     1
   );
   return initState(gl, numParticles);
+};
+
+export const updateLayerBounds = (
+  gl,
+  b,
+  imageSpecs,
+  updateProgram,
+  drawProgram
+) => {
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  const imageWidthEPSG3857 = imageSpecs.bbox3857[2] - imageSpecs.bbox3857[0];
+  const imageHeightEPSG3857 = imageSpecs.bbox3857[3] - imageSpecs.bbox3857[1];
+  const mapBounds = [
+    ...proj4("EPSG:3857", [b._sw.lng, b._sw.lat]),
+    ...proj4("EPSG:3857", [b._ne.lng, b._ne.lat]),
+  ];
+  const windLookup2CanvasRatio = [
+    ((mapBounds[2] - mapBounds[0]) / imageWidthEPSG3857) *
+      (imageSpecs.size[0] / gl.canvas.width),
+    ((mapBounds[3] - mapBounds[1]) / imageHeightEPSG3857) *
+      (imageSpecs.size[1] / gl.canvas.height),
+  ];
+  const windLookupOffset = [
+    ((mapBounds[0] - imageSpecs.bbox3857[0]) / imageWidthEPSG3857) *
+      imageSpecs.size[0],
+    ((mapBounds[1] - imageSpecs.bbox3857[1]) / imageHeightEPSG3857) *
+      imageSpecs.size[1],
+  ];
+  updateProgram.uniforms.windLookup2CanvasRatio = windLookup2CanvasRatio;
+  updateProgram.uniforms.windLookupOffset = windLookupOffset;
+  drawProgram.uniforms.windLookup2CanvasRatio = windLookup2CanvasRatio;
+  drawProgram.uniforms.windLookupOffset = windLookupOffset;
 };

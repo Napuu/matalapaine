@@ -9,11 +9,11 @@ uniform sampler2D windLookup;
 
 uniform vec2 windLookupOffset;
 uniform vec2 imageSizePixels;
-uniform vec2 diff;
+uniform vec2 windLookup2CanvasRatio;
 
 uniform sampler2D colorRamp;
 vec2 ext2img(float x, float y) {
-  return vec2(x * diff.x + windLookupOffset[0], y * diff.y + windLookupOffset[1]);
+  return vec2(x * windLookup2CanvasRatio.x + windLookupOffset[0], y * windLookup2CanvasRatio.y + windLookupOffset[1]);
 }
 
 void main() {

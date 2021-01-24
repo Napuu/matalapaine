@@ -7,7 +7,7 @@ uniform vec2 canvasDimensions;
 
 uniform vec2 imageSizePixels;
 uniform vec2 windLookupOffset;
-uniform vec2 diff;
+uniform vec2 windLookup2CanvasRatio;
 
 out vec2 newPosition;
 
@@ -21,7 +21,7 @@ float rand(const vec2 co) {
 }
 
 vec2 ext2img(float x, float y) {
-  return vec2(x * diff.x + windLookupOffset[0], y * diff.y + windLookupOffset[1]);
+  return vec2(x * windLookup2CanvasRatio.x + windLookupOffset[0], y * windLookup2CanvasRatio.y + windLookupOffset[1]);
 }
 
 // gold noise implementation from https://stackoverflow.com/a/28095165/1550017
