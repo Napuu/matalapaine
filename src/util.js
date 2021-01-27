@@ -81,7 +81,6 @@ export function getColorRamp() {
   const canvas = document.createElement("canvas");
   canvas.id = "ramp";
   const ctx = canvas.getContext("2d");
-  //document.body.appendChild(canvas);
 
   canvas.width = 256;
   canvas.height = 1;
@@ -94,7 +93,7 @@ export function getColorRamp() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 256, 1);
 
-  return new Uint8Array(ctx.getImageData(0, 0, 256, 1).data);
+  return {canvas, array: new Uint8Array(ctx.getImageData(0, 0, 256, 1).data)};
 }
 
 export function bindAttribute(gl, buffer, attribute, numComponents) {

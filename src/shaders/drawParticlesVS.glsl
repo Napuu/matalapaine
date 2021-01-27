@@ -32,14 +32,12 @@ void main() {
     windColor = vec4(1., 1., 0., 1.);
   }
 
-  float xa = windspeedmeters * 25.;
+  float xa = windspeedmeters * 8.5;
 
   // color ramp is encoded in a 16x16 texture
   vec2 ramp_pos = vec2(
       fract(16.0 * xa),
-      //16.0,
       floor(16.0 * xa) / 16.0);
-  //16.0);
 
   windColor = texture(colorRamp, ramp_pos);
   windColor[3] = 0.8;

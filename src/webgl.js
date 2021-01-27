@@ -77,9 +77,12 @@ export const initPrograms = (gl) => {
 
 export const loadWindImage = async (gl, imgSrc, texture) => {
   return new Promise(async (resolve, _reject) => {
-    const metadata = await (await fetch(imgSrc + ".meta")).text();
+    //const metadata = await (await fetch(imgSrc + ".meta")).text();
+    const metadata = await (await fetch("http://192.168.1.36:5000/filut/filu.meta")).text();
     const image = new Image();
     image.src = imgSrc;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
     image.onload = function () {
       gl.activeTexture(gl.TEXTURE3);
       gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -91,6 +94,10 @@ export const loadWindImage = async (gl, imgSrc, texture) => {
         gl.UNSIGNED_BYTE,
         image
       );
+      canvas.width = image.width;
+      canvas.height = image.height;
+      ctx.drawImage(image, 0, 0);
+
       gl.generateMipmap(gl.TEXTURE_2D);
       const bbox4326 = metadata.split(" ").map((a) => parseFloat(a));
       resolve({
@@ -100,6 +107,7 @@ export const loadWindImage = async (gl, imgSrc, texture) => {
           ...proj4("EPSG:3857", bbox4326.slice(2)),
         ],
         size: [image.width, image.height],
+        data: ctx.getImageData(0, 0, image.width, image.height).data,
       });
     };
   });
@@ -207,7 +215,7 @@ export const drawFadedPreviousFrame = (gl, container, state) => {
   util.bindFramebuffer(gl, state.framebuffer, state.next.texture);
   util.drawTexture(
     state.current.texture,
-    0.99,
+    0.995,
     state.quadBuffer,
     container.program,
     gl,
@@ -262,7 +270,7 @@ export const initState = (gl, numParticles) => {
       ),
     },
     framebuffer: gl.createFramebuffer(),
-    colorRamp: util.createTexture(gl, gl.LINEAR, util.getColorRamp(), 16, 16),
+    colorRamp: util.createTexture(gl, gl.LINEAR, util.getColorRamp().array, 16, 16),
     quadBuffer: util.createBuffer(
       gl,
       new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
