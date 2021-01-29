@@ -248,6 +248,8 @@ import * as util from "./util";
     ((image.bbox3857[3] - mapBounds[3]) / imageHeightEPSG3857) *
       image.size[1],
   ];
+    const sx = x + drawProgram.uniforms.windLookup2CanvasRatio[0] * drawProgram.uniforms.windLookupOffset[0];
+    console.log(sx);
     console.log(windLookupOffset); // these are now fixed for js side canvas lookup
     //TODO this
   });
