@@ -1,3 +1,4 @@
+import proj4 from "proj4";
 export function makeBuffer(gl, sizeOrData, usage) {
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -93,7 +94,7 @@ export function getColorRamp() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 256, 1);
 
-  return {canvas, array: new Uint8Array(ctx.getImageData(0, 0, 256, 1).data)};
+  return { canvas, array: new Uint8Array(ctx.getImageData(0, 0, 256, 1).data) };
 }
 
 export function bindAttribute(gl, buffer, attribute, numComponents) {
@@ -197,4 +198,48 @@ export function createProgram(
     throw new Error(gl.getProgramParameter(program));
   }
   return program;
+}
+
+export function lookupWindspeed(drawProgram, image, map, x, y, state) {
+  const b = map.getBounds();
+  const imageWidthEPSG3857 = image.bbox3857[2] - image.bbox3857[0];
+  const imageHeightEPSG3857 = image.bbox3857[3] - image.bbox3857[1];
+  const mapBounds = [
+    ...proj4("EPSG:3857", [b._sw.lng, b._sw.lat]),
+    ...proj4("EPSG:3857", [b._ne.lng, b._ne.lat]),
+  ];
+  const windLookupOffset = [
+    ((mapBounds[0] - image.bbox3857[0]) / imageWidthEPSG3857) * image.size[0],
+    ((image.bbox3857[3] - mapBounds[3]) / imageHeightEPSG3857) * image.size[1],
+  ];
+  const sx =
+    x * state.pxRatio * drawProgram.uniforms.windLookup2CanvasRatio[0] +
+    drawProgram.uniforms.windLookupOffset[0];
+  const sy =
+    y * state.pxRatio * drawProgram.uniforms.windLookup2CanvasRatio[0] +
+    windLookupOffset[1];
+  let windspeedMeters;
+  if (sx < 0 || sx > image.size[0] || sy < 0 || sy > image.size[1]) {
+    // nothing to show
+  } else {
+    const startI = Math.floor(sy) * (image.size[0] * 4) + Math.floor(sx) * 4;
+    const d = {
+      x: image.data[startI] - 255 / 2,
+      y: image.data[startI + 1] - 255 / 2,
+    };
+    windspeedMeters = Math.round(
+      Math.sqrt(Math.pow(d.x / 2.55, 2) + Math.pow(d.y / 2.55, 2))
+    );
+  }
+  return windspeedMeters;
+}
+
+export function debounce(func, timeout = 400) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      func.apply(this, args);
+    }, timeout);
+  };
 }

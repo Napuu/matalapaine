@@ -1,8 +1,6 @@
-import { Map } from "maplibre-gl";
+import { Map, Popup } from "maplibre-gl";
 import { h, Component, render as preactRender } from "preact";
-import { useEffect, useState } from 'preact/hooks'
-import proj4 from "proj4";
-
+import { useEffect, useState } from "preact/hooks";
 import htm from "htm";
 import {
   initPrograms,
@@ -17,17 +15,20 @@ import {
 import * as util from "./util";
 
 (async () => {
-  const numParticles = 60000;
+  // some features are kind of buggy with chrome + webgl2
+  const isChrome = window.navigator.userAgent.includes("Chrome");
 
   // init canvas and webgl2 context
   const canvas = document.querySelector("#c");
   const gl = canvas.getContext("webgl2", { antialias: false });
   if (!gl) {
     alert("Unfortunately your browser doesn't support webgl2 :/");
+    return;
   }
   const pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
   canvas.width = canvas.clientWidth * pxRatio;
   canvas.height = canvas.clientHeight * pxRatio;
+  const particleDensity = 1;
 
   // init webgl programs
   const { updateProgram, drawProgram, screenProgram } = initPrograms(gl);
@@ -35,24 +36,18 @@ import * as util from "./util";
   // load initial wind texture
   const windTexture = gl.createTexture();
   let image;
-  /*
-  const image = await loadWindImage(gl, "/filut/2021-01-23T13:00:00.jpeg", windTexture);
-  updateProgram.uniforms.imageSizePixels = image.size;
-  drawProgram.uniforms.imageSizePixels = image.size;
-*/
 
   // initial state of animation
   let state = resetAnimation(
     gl,
     canvas,
     pxRatio,
-    numParticles,
+    particleDensity,
     drawProgram,
     updateProgram
   );
 
   let then = 0;
-
   const render = (time) => {
     if (!state.running) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -72,10 +67,15 @@ import * as util from "./util";
 
       drawParticles(gl, drawProgram, state);
 
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      // combination of chrome, webgl2 and blend seems to be kind of buggy
+      if (!isChrome) {
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      }
       drawScreen(gl, screenProgram, state);
-      gl.disable(gl.BLEND);
+      if (!isChrome) {
+        gl.disable(gl.BLEND);
+      }
 
       // swap buffers, transformfeedbacks etc.
       const temp = state.current;
@@ -85,64 +85,118 @@ import * as util from "./util";
     requestAnimationFrame(render);
   };
 
-
-
-  // Initialize htm with Preact
   const html = htm.bind(h);
 
   const getDefaultDate = () => {
     const t = new Date();
-    t.setHours(t.getHours() + 3);
-    //            |
-    // 2021-01-23T13:00:00
+    t.setHours(t.getHours() + 1);
     const d = t.toISOString().slice(0, 13);
     return `${d}:00:00`;
-  }
+  };
   const stepDate = (date, hours) => {
     const t = new Date(date);
-    t.setHours(t.getHours() + hours + 2);
+    const timezoneOffsetHours = t.getTimezoneOffset() / 60;
+    t.setHours(t.getHours() + hours - timezoneOffsetHours);
+
+    const diffHours = Math.abs(new Date() - t) / 3600000;
+    if (diffHours > 12) {
+      alert("Only ± 12h available");
+      t.setHours(t.getHours() + hours - timezoneOffsetHours);
+    }
+
     const d = t.toISOString().slice(0, 13);
     return `${d}:00:00`;
-  }
-  function App (props) {
-    const [date, setDate] = useState(getDefaultDate())
+  };
+  let popup = { element: new Popup({ closeOnClick: true }), lngLat: null };
+  const updatePopup = (popup) => {
+    if (popup.lngLat) {
+      const point = map.project(popup.lngLat);
+      const windspeedMeters = util.lookupWindspeed(
+        drawProgram,
+        image,
+        map,
+        point.x,
+        point.y,
+        state
+      );
+      popup.element.setHTML(windspeedMeters + " m/s");
+    }
+  };
+  function App(props) {
+    const [date, setDate] = useState(getDefaultDate());
+    const [infoVisibility, setInfoVisibility] = useState("hidden");
+    const toggleInfoVisibility = () => {
+      if (infoVisibility === "hidden") {
+        setInfoVisibility("initial");
+      } else {
+        setInfoVisibility("hidden");
+      }
+    };
     const incrementDate = () => {
       setDate(stepDate(date, 1));
-    }
+      util.debounce(() => {
+        updatePopup(popup);
+      })();
+    };
     const decrementDate = () => {
       setDate(stepDate(date, -1));
-    }
+      util.debounce(() => {
+        updatePopup(popup);
+      })();
+    };
     const prettifyDate = (_date) => {
       const date = new Date(_date);
+      date.setHours(date.getHours() - date.getTimezoneOffset() / 60);
       const padStart = (a) => a.toString().padStart(2, "0");
-      return `${padStart(date.getDate())}.${padStart(date.getMonth()+1)}.${date.getFullYear()} ${padStart(date.getHours())}:${padStart(date.getMinutes())}:00`;
-    }
+      return `${padStart(date.getHours())}:${padStart(
+        date.getMinutes()
+      )}:00 ${padStart(date.getDate())}.${padStart(
+        date.getMonth() + 1
+      )}.${date.getFullYear()}`;
+    };
     useEffect(async () => {
-      console.log(date);
-      image = await loadWindImage(gl, "/filut/" + date + ".jpeg", windTexture);
+      //image = await loadWindImage(gl, "https://projects.napuu.xyz/forecast/" + date + ".jpeg", windTexture);
+      image = await loadWindImage(
+        gl,
+        "/back/forecast/" + date + ".jpeg",
+        windTexture
+      );
       updateProgram.uniforms.imageSizePixels = image.size;
       drawProgram.uniforms.imageSizePixels = image.size;
       state = resetAnimation(
         gl,
         canvas,
         pxRatio,
-        numParticles,
+        particleDensity,
         drawProgram,
         updateProgram
       );
-    }, [date])
-    useEffect(async () => {
-    }, []);
-    return html`
-    <p>
-      <h1>
-        ${prettifyDate(date)}
-      </h1>
+    }, [date]);
+
+    return html` <div class="controls">
+      <div id="date">${prettifyDate(date)}</div>
       <button onClick=${decrementDate}>-1h</button>
       <button onClick=${incrementDate}>+1h</button>
-    </p>`;
+      <div
+        id="info"
+        onClick=${() => {
+          toggleInfoVisibility("initial");
+        }}
+      >
+        i
+      </div>
+      <div style="visibility: ${infoVisibility}" id="info-popup">
+        Source code and more:
+        <br /><a href="https://github.com/Napuu/weather-dashboard-front"
+          >github.com</a
+        >
+      </div>
+    </div>`;
   }
-  preactRender(html`<${App} name="World" />`, document.querySelector("#controls"));
+  preactRender(
+    html`<${App} name="World" />`,
+    document.querySelector("#controls")
+  );
 
   const map = new Map({
     container: "map",
@@ -153,9 +207,7 @@ import * as util from "./util";
       sources: {
         land: {
           type: "vector",
-          tiles: [
-            'https://projects.napuu.xyz/tiles/maps/land/{z}/{x}/{y}.pbf'
-          ],
+          tiles: ["https://projects.napuu.xyz/tiles/maps/land/{z}/{x}/{y}.pbf"],
           minzoom: 0,
           maxzoom: 6,
         },
@@ -199,59 +251,47 @@ import * as util from "./util";
   map.on("moveend", () => {
     console.debug("moveend");
     state.running = true;
-    updateLayerBounds(
-      gl,
-      map.getBounds(),
-      image,
-      updateProgram,
-      drawProgram
-    );
+    if (popup.lngLat) {
+      const point = map.project(popup.lngLat);
+      if (
+        point.x < 0 ||
+        point.x > canvas.width / pxRatio ||
+        point.y < 0 ||
+        point.y > canvas.height / pxRatio
+      ) {
+        popup.element.remove();
+      }
+    }
+    updateLayerBounds(gl, map.getBounds(), image, updateProgram, drawProgram);
   });
 
   map.on("load", () => {
-    updateLayerBounds(
-      gl,
-      map.getBounds(),
-      image,
-      updateProgram,
-      drawProgram
-    );
+    updateLayerBounds(gl, map.getBounds(), image, updateProgram, drawProgram);
     map.fitBounds([-28, 65, 39, 65]);
     requestAnimationFrame(render);
   });
 
   map.on("click", (e) => {
-    console.debug(e);
-    const x = e.point.x;
-    const y = e.point.y;
-    console.log(x, y);
-
-    console.log(drawProgram.uniforms.windLookup2CanvasRatio);
-    const t = (drawProgram.uniforms.windLookupOffset);
-    const b = map.getBounds();
-  const imageWidthEPSG3857 = image.bbox3857[2] - image.bbox3857[0];
-  const imageHeightEPSG3857 = image.bbox3857[3] - image.bbox3857[1];
-  const mapBounds = [
-    ...proj4("EPSG:3857", [b._sw.lng, b._sw.lat]),
-    ...proj4("EPSG:3857", [b._ne.lng, b._ne.lat]),
-  ];
-  const windLookup2CanvasRatio = [
-    ((mapBounds[2] - mapBounds[0]) / imageWidthEPSG3857) *
-      (image.size[0] / gl.canvas.width),
-    ((mapBounds[3] - mapBounds[1]) / imageHeightEPSG3857) *
-      (image.size[1] / gl.canvas.height),
-  ];
-  const windLookupOffset = [
-    ((mapBounds[0] - image.bbox3857[0]) / imageWidthEPSG3857) *
-      image.size[0],
-    //((mapBounds[1] - image.bbox3857[1]) / imageHeightEPSG3857) *
-    ((image.bbox3857[3] - mapBounds[3]) / imageHeightEPSG3857) *
-      image.size[1],
-  ];
-    const sx = x + drawProgram.uniforms.windLookup2CanvasRatio[0] * drawProgram.uniforms.windLookupOffset[0];
-    console.log(sx);
-    console.log(windLookupOffset); // these are now fixed for js side canvas lookup
-    //TODO this
+    util.debounce(() => {
+      const windspeedMeters = util.lookupWindspeed(
+        drawProgram,
+        image,
+        map,
+        e.point.x,
+        e.point.y,
+        state
+      );
+      if (windspeedMeters !== undefined) {
+        popup.element = new Popup({ closeOnClick: true })
+          .setLngLat(e.lngLat)
+          .setHTML(windspeedMeters + " m/s")
+          .addTo(map);
+        popup.lngLat = e.lngLat;
+        // ugly way to insert popup on top of my wind animation
+        const el = document.querySelector(".mapboxgl-popup");
+        document.querySelector("#popup-container").appendChild(el);
+      }
+    })();
   });
 
   window.onresize = () => {
@@ -260,16 +300,10 @@ import * as util from "./util";
       gl,
       canvas,
       pxRatio,
-      numParticles,
+      particleDensity,
       drawProgram,
       updateProgram
     );
-    updateLayerBounds(
-      gl,
-      map.getBounds(),
-      image,
-      updateProgram,
-      drawProgram
-    );
+    updateLayerBounds(gl, map.getBounds(), image, updateProgram, drawProgram);
   };
 })();

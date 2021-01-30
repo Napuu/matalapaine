@@ -78,7 +78,8 @@ export const initPrograms = (gl) => {
 export const loadWindImage = async (gl, imgSrc, texture) => {
   return new Promise(async (resolve, _reject) => {
     //const metadata = await (await fetch(imgSrc + ".meta")).text();
-    const metadata = await (await fetch("http://192.168.1.36:5000/filut/filu.meta")).text();
+    //const metadata = await (await fetch("http://192.168.1.36:5000/filut/filu.meta")).text();
+    const metadata = "-42 40 48 80";
     const image = new Image();
     image.src = imgSrc;
     const canvas = document.createElement("canvas");
@@ -235,7 +236,7 @@ export const drawScreen = (gl, container, state) => {
   );
 };
 
-export const initState = (gl, numParticles) => {
+export const initState = (gl, numParticles, pxRatio) => {
   const positions = new Float32Array(
     createPoints(numParticles, [[gl.canvas.width], [gl.canvas.height]])
   );
@@ -270,13 +271,20 @@ export const initState = (gl, numParticles) => {
       ),
     },
     framebuffer: gl.createFramebuffer(),
-    colorRamp: util.createTexture(gl, gl.LINEAR, util.getColorRamp().array, 16, 16),
+    colorRamp: util.createTexture(
+      gl,
+      gl.LINEAR,
+      util.getColorRamp().array,
+      16,
+      16
+    ),
     quadBuffer: util.createBuffer(
       gl,
       new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
     ),
-    numParticles: 20000,
+    numParticles,
     running: true,
+    pxRatio,
   };
 };
 
@@ -284,7 +292,7 @@ export const resetAnimation = (
   gl,
   canvas,
   pxRatio,
-  numParticles,
+  particleDensity,
   drawProgram,
   updateProgram
 ) => {
@@ -292,6 +300,9 @@ export const resetAnimation = (
   gl.canvas.height = canvas.clientHeight * pxRatio;
   updateProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
   drawProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
+  const numParticles = Math.floor(
+    (gl.canvas.width * gl.canvas.height * particleDensity) / 1000
+  );
   drawProgram.uniforms.matrix = util.orthographic(
     0,
     gl.canvas.width,
@@ -300,7 +311,7 @@ export const resetAnimation = (
     -1,
     1
   );
-  return initState(gl, numParticles);
+  return initState(gl, numParticles, pxRatio);
 };
 
 export const updateLayerBounds = (
