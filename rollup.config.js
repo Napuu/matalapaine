@@ -12,7 +12,7 @@ export default {
   output: {
     file: 'public/bundle.js',
     format: 'iife', // immediately-invoked function expression — suitable for <script> tags
-    sourcemap: true
+    sourcemap: !production
   },
   plugins: [
     nodeResolve(), // tells Rollup how to find date-fns in node_modules
