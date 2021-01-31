@@ -1,6 +1,8 @@
 # weather-dashboard-front
 
-Visualization of Northern Europe wind conditions. https://matalapaine.fi
+Visualizing wind conditions with WebGL2. 
+
+https://matalapaine.fi
 
 ![preview](public/preview.jpg?raw=true)
 
