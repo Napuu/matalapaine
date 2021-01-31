@@ -1,5 +1,5 @@
 {
-  "name": "webgl-testing",
+  "name": "weather-dashboard-front",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -24,14 +24,11 @@
     "rollup-plugin-html-entry": "0.3.0",
     "rollup-plugin-terser": "7.0.2",
     "serve": "11.3.2",
-    "stats.js": "0.17.0"
   },
   "dependencies": {
     "htm": "^3.0.4",
     "maplibre-gl": "1.13.0-rc.4",
     "preact": "^10.5.7",
-    "proj4": "2.6.3",
-    "proj4js": "^10.0.0",
-    "twgl.js": "4.17.0"
+    "proj4": "2.6.3"
   }
 }

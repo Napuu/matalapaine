@@ -1,6 +1,6 @@
 body {
     margin: 0px;
-    font-family: Arial;
+    font-family: Courier;
     max-height: 100vh;
 }
 #popup-container {
@@ -44,9 +44,9 @@ body {
 }
 .controls button {
     all: unset;
+    font-weight: 600;
     width: 30px;
     text-align: center;
-    font-weight: 400;
     border: 1px white;
     border-radius: 3px;
     background-color: #bbb;
@@ -54,8 +54,10 @@ body {
     padding: 5px;
     margin: 10px;
     margin-right: 0px;
+    user-select: none;
 }
 #date {
+    font-weight: 600;
     border: 1px white;
     border-radius: 3px;
     background-color: #bbb;
@@ -77,6 +79,7 @@ body {
     font-style: italic;
     font-size: 13;
     background-color: #bbb;
+    font-family: Arial;
 }
 #info:hover {
     cursor: pointer;
@@ -89,7 +92,8 @@ body {
     right: 0px;
     padding: 8px;
     z-index: 2;
-    width: 161.5px;
+    width: 220px;
+    font-size: smaller;
     margin-top: -5px;
     border-radius: 3px;
 }

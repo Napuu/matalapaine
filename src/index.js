@@ -28,7 +28,7 @@ import * as util from "./util";
   const pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
   canvas.width = canvas.clientWidth * pxRatio;
   canvas.height = canvas.clientHeight * pxRatio;
-  const particleDensity = 1;
+  const particleDensity = 1.5;
 
   // init webgl programs
   const { updateProgram, drawProgram, screenProgram } = initPrograms(gl);
@@ -85,8 +85,8 @@ import * as util from "./util";
     requestAnimationFrame(render);
   };
 
+  // Ui stuff, Preact definitely wasn't needed here, but wanted to try it :-)
   const html = htm.bind(h);
-
   const getDefaultDate = () => {
     const t = new Date();
     t.setHours(t.getHours() + 1);
@@ -99,12 +99,14 @@ import * as util from "./util";
     t.setHours(t.getHours() + hours - timezoneOffsetHours);
 
     const diffHours = Math.abs(new Date() - t) / 3600000;
-    if (diffHours > 12) {
-      alert("Only ± 12h available");
-      t.setHours(t.getHours() + hours - timezoneOffsetHours);
+    let d = t.toISOString().slice(0, 13);
+    if (diffHours > 36) {
+      alert("Only ±36h available");
+      const original = new Date(date);
+      original.setHours(original.getHours() - timezoneOffsetHours);
+      d = original.toISOString().slice(0, 13);
     }
-
-    const d = t.toISOString().slice(0, 13);
+    // ISO string with hours and minutes set to 0
     return `${d}:00:00`;
   };
   let popup = { element: new Popup({ closeOnClick: true }), lngLat: null };
@@ -155,10 +157,9 @@ import * as util from "./util";
       )}.${date.getFullYear()}`;
     };
     useEffect(async () => {
-      //image = await loadWindImage(gl, "https://projects.napuu.xyz/forecast/" + date + ".jpeg", windTexture);
       image = await loadWindImage(
         gl,
-        "/back/forecast/" + date + ".jpeg",
+        "/forecast/" + date + ".jpeg",
         windTexture
       );
       updateProgram.uniforms.imageSizePixels = image.size;
@@ -173,23 +174,16 @@ import * as util from "./util";
       );
     }, [date]);
 
-    return html` <div class="controls">
+    return html`<div class="controls">
       <div id="date">${prettifyDate(date)}</div>
       <button onClick=${decrementDate}>-1h</button>
       <button onClick=${incrementDate}>+1h</button>
-      <div
-        id="info"
-        onClick=${() => {
+      <div id="info" onClick=${() => {
           toggleInfoVisibility("initial");
-        }}
-      >
-        i
-      </div>
+      }}>i</div>
       <div style="visibility: ${infoVisibility}" id="info-popup">
-        Source code and more:
-        <br /><a href="https://github.com/Napuu/weather-dashboard-front"
-          >github.com</a
-        >
+        Santeri Kääriäinen ${"<santeri.kaariainen@iki.fi>"}
+        <br /><a href="https://github.com/Napuu/weather-dashboard-front">github.com</a>
       </div>
     </div>`;
   }
@@ -207,7 +201,7 @@ import * as util from "./util";
       sources: {
         land: {
           type: "vector",
-          tiles: ["https://projects.napuu.xyz/tiles/maps/land/{z}/{x}/{y}.pbf"],
+          tiles: ["https://matalapaine.fi/tiles/maps/land/{z}/{x}/{y}.pbf"],
           minzoom: 0,
           maxzoom: 6,
         },

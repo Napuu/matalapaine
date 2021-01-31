@@ -77,10 +77,12 @@ export const initPrograms = (gl) => {
 
 export const loadWindImage = async (gl, imgSrc, texture) => {
   return new Promise(async (resolve, _reject) => {
-    //const metadata = await (await fetch(imgSrc + ".meta")).text();
-    //const metadata = await (await fetch("http://192.168.1.36:5000/filut/filu.meta")).text();
+    // using hardcoded metadata now as only one forecast source is used
+    // const metadata = await (await fetch(imgSrc + ".meta")).text();
     const metadata = "-42 40 48 80";
     const image = new Image();
+    // debug
+    // image.src = "fresh.jpeg";
     image.src = imgSrc;
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
