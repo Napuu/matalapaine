@@ -178,12 +178,19 @@ import * as util from "./util";
       <div id="date">${prettifyDate(date)}</div>
       <button onClick=${decrementDate}>-1h</button>
       <button onClick=${incrementDate}>+1h</button>
-      <div id="info" onClick=${() => {
+      <div
+        id="info"
+        onClick=${() => {
           toggleInfoVisibility("initial");
-      }}>i</div>
+        }}
+      >
+        i
+      </div>
       <div style="visibility: ${infoVisibility}" id="info-popup">
         Santeri Kääriäinen ${"<santeri.kaariainen@iki.fi>"}
-        <br /><a href="https://github.com/Napuu/weather-dashboard-front">github.com</a>
+        <br /><a href="https://github.com/Napuu/weather-dashboard-front"
+          >github.com</a
+        >
       </div>
     </div>`;
   }
