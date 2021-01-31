@@ -1,6 +1,5 @@
 # weather-dashboard-front
-
-Visualizing wind conditions with WebGL2. 
+Visualizing wind conditions with WebGL2.
 
 https://matalapaine.fi
 
