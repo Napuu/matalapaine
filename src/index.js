@@ -244,7 +244,11 @@ import * as util from "./util";
 
   map.touchZoomRotate.disableRotation();
 
+  // making sure popup is not opened twice with
+  // double clicks or at all when moving
+  let clickedRecently = false;
   map.on("movestart", () => {
+    clickedRecently = false;
     console.debug("movestart");
     state.running = false;
   });
@@ -273,7 +277,9 @@ import * as util from "./util";
   });
 
   map.on("click", (e) => {
+    clickedRecently = true;
     util.debounce(() => {
+      if (!clickedRecently) return;
       const windspeedMeters = util.lookupWindspeed(
         drawProgram,
         image,
@@ -292,6 +298,7 @@ import * as util from "./util";
         const el = document.querySelector(".mapboxgl-popup");
         document.querySelector("#popup-container").appendChild(el);
       }
+      clickedRecently = false;
     })();
   });
 
