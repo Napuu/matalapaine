@@ -240,6 +240,7 @@ import * as util from "./util";
     },
     center: [8, 63],
     zoom: 4,
+    minZoom: 2,
   });
 
   map.touchZoomRotate.disableRotation();
