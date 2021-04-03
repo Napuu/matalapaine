@@ -6,8 +6,8 @@
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w",
-    "dev": "npm-run-all --parallel start watch",
-    "start": "serve public",
+    "dev": "npm-run-all --parallel start-only-server watch",
+    "start-only-server": "serve public",
     "lint": "prettier --write src"
   },
   "keywords": [],
