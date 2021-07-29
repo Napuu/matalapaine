@@ -100,8 +100,8 @@ import * as util from "./util";
 
     const diffHours = Math.abs(new Date() - t) / 3600000;
     let d = t.toISOString().slice(0, 13);
-    if (diffHours > 36) {
-      alert("Only ±36h available");
+    if (diffHours > 6) {
+      alert("Only ±6h available");
       const original = new Date(date);
       original.setHours(original.getHours() - timezoneOffsetHours);
       d = original.toISOString().slice(0, 13);
