@@ -7,7 +7,6 @@ https://matalapaine.fi
 
 Frontend stack consisting of WebGL2, React (Preact), MapLibre JS (Fork of Mapbox GL JS).  
 I wanted to use WebGL2 as it had some useful new features, mainly possibility to keep particle state at traditional buffers via transform feedbacks instead of using fairly common "hack" where particle state is encoded to and decoded from texture. (Like for example at this nice project https://github.com/mapbox/webgl-wind)  
-On the downside iOS or Safari don't support WebGL2 right now.
 
 At backend Go, GDAL and some bash scripts are used to fetch data from Finnish Meteorology Institute and process it from GRIB files to jpeg.
 
