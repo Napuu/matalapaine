@@ -79,11 +79,11 @@ export const loadWindImage = async (gl, imgSrc, texture) => {
   return new Promise(async (resolve, _reject) => {
     // using hardcoded metadata now as only one forecast source is used
     // const metadata = await (await fetch(imgSrc + ".meta")).text();
-    const metadata = "-42 40 48 80";
+    const metadata = "-180 -85.051 180 85.051";
     const image = new Image();
     // debug
-    // image.src = "fresh.jpeg";
-    image.src = imgSrc;
+    image.src = "out2.jpeg";
+    // image.src = imgSrc;
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     image.onload = function () {

@@ -68,14 +68,10 @@ import * as util from "./util";
       drawParticles(gl, drawProgram, state);
 
       // combination of chrome, webgl2 and blend seems to be kind of buggy
-      if (!isChrome) {
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      }
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       drawScreen(gl, screenProgram, state);
-      if (!isChrome) {
-        gl.disable(gl.BLEND);
-      }
+      gl.disable(gl.BLEND);
 
       // swap buffers, transformfeedbacks etc.
       const temp = state.current;
@@ -231,9 +227,25 @@ import * as util from "./util";
             "line-join": "round",
           },
           paint: {
-            "line-opacity": 1.0,
+            "line-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              8,
+              0.8,
+              14,
+              1.0,
+            ],
             "line-color": "rgb(170, 170, 170)",
-            "line-width": 1.5,
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              8,
+              0.7,
+              14,
+              1.9,
+            ]
           },
         },
       ],
