@@ -199,6 +199,7 @@ import * as util from "./util";
     container: "map",
     pitchWithRotate: false,
     dragRotate: false,
+    maxBounds: [[-180, -90], [180, 90]],
     style: {
       version: 8,
       sources: {
