@@ -5,7 +5,10 @@ def handler(event, context):
     # the keys we're interested right now, are of following format:
     # gfs.20210226/18/gfs.t18z.sfluxgrbf010.grib2
     if (key.startswith("gfs.") and key.endswith(".grib2") and "sfluxgrbf" in key):
-        print(key)
+        from dataset_processor import handle_new_gfs
+        # only import if we need to
+        print("Processing key: " + key)
+        handle_new_gfs(key)
         return {
             'statusCode': 200,
         }

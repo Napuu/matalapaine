@@ -8,6 +8,7 @@ from aws_cdk import (
     aws_iam as iam,
     CfnOutput,
     aws_s3 as s3,
+    aws_cloudfront as cf,
     aws_apigateway as apigw,
     aws_lambda as _lambda,
     RemovalPolicy,
@@ -21,33 +22,9 @@ class SnsLambdaS3CloudfrontStack(Stack):
   def __init__(self, scope: Construct, id: str, **kwargs) -> None:
     super().__init__(scope, id, **kwargs)
 
-    # Create a lambda function that is triggered by SNS event
-    # and will read the message from the queue and write it to S3
-    # bucket.
-    sns_lambda = _lambda.Function(
-      self,
-      "SNSTriggerLambda",
-      handler="lambda-handler.handler",
-      runtime=_lambda.Runtime.PYTHON_3_7,
-      # environment={"GDAL_DATA": "/opt/share/gdal", "PROJ_LIB": "/opt/share/proj"},
-      # quite high, but downloading data takes a while
-      # timeout=Duration.seconds(300),
-      # memory_size=1024,
-      # layers=[layer1, layer2],
-      code=_lambda.Code.from_asset("lambda"),
-    )
-
-    # Attach NewGFSObject SNS topic to lambda we just created
-    noaa_gfs_sns_arn = "arn:aws:sns:us-east-1:123901341784:NewGFSObject"
-    sns_lambda.add_event_source(
-      lambda_event_source.SnsEventSource(
-        sns.Topic.from_topic_arn(self, "SNSTopic", noaa_gfs_sns_arn),
-      ),
-    )
 
     # Create bucket
     bucket = s3.Bucket(self, "noaa-processed-storage",
-          # removalPolicy: cdk.RemovalPolicy.DESTROY,
       removal_policy=RemovalPolicy.DESTROY,
       access_control=s3.BucketAccessControl.BUCKET_OWNER_FULL_CONTROL,
       encryption=s3.BucketEncryption.S3_MANAGED,
@@ -78,6 +55,48 @@ class SnsLambdaS3CloudfrontStack(Stack):
     S3_ACCESS_POINT_NAME = "noaa-processing"
     self.access_point = f"arn:aws:s3:{Aws.REGION}:{Aws.ACCOUNT_ID}:accesspoint/" \
                         f"{S3_ACCESS_POINT_NAME}"
+    # Geolambda layers
+    layer1 = _lambda.LayerVersion(self, 'geolambdapython',
+      code=_lambda.Code.from_asset("lambda-deploy-python.zip"),
+      description='GDAL etc.',
+      compatible_runtimes=[
+          _lambda.Runtime.PYTHON_3_7,
+      ],
+      removal_policy=RemovalPolicy.DESTROY)
+    layer2 = _lambda.LayerVersion(self, 'geolambda',
+      code=_lambda.Code.from_asset("lambda-deploy.zip"),
+      description='GDAL Python bindings etc.',
+      compatible_runtimes=[
+          _lambda.Runtime.PYTHON_3_7,
+      ],
+      removal_policy=RemovalPolicy.DESTROY)
+    # Create a lambda function that is triggered by SNS event
+    # and will read the message from the queue and write it to S3
+    # bucket.
+    sns_lambda = _lambda.Function(
+      self,
+      "SNSTriggerLambda",
+      handler="lambda-handler.handler",
+      runtime=_lambda.Runtime.PYTHON_3_7,
+      environment={
+        "GDAL_DATA": "/opt/share/gdal", "PROJ_LIB": "/opt/share/proj",
+        "CDK_PROCESSED_BUCKET_AP": self.access_point,
+        "CDK_NOAA_BUCKET_ID": 'noaa-gfs-bdp-pds'
+      },
+      # quite high, but downloading data takes a while
+      timeout=Duration.seconds(300),
+      memory_size=1024,
+      layers=[layer1, layer2],
+      code=_lambda.Code.from_asset("lambda"),
+    )
+
+    # Attach NewGFSObject SNS topic to lambda we just created
+    noaa_gfs_sns_arn = "arn:aws:sns:us-east-1:123901341784:NewGFSObject"
+    sns_lambda.add_event_source(
+      lambda_event_source.SnsEventSource(
+        sns.Topic.from_topic_arn(self, "SNSTopic", noaa_gfs_sns_arn),
+      ),
+    )
 
     policy_doc = iam.PolicyDocument()
     policy_statement = iam.PolicyStatement(
@@ -101,3 +120,4 @@ class SnsLambdaS3CloudfrontStack(Stack):
 
     CfnOutput(self, "noaaProcessingBucketArn", value=bucket.bucket_arn)
     CfnOutput(self, "noaaProcessingAccessPoint", value=self.access_point)
+
