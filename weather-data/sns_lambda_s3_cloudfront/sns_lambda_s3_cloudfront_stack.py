@@ -9,6 +9,7 @@ from aws_cdk import (
     CfnOutput,
     aws_s3 as s3,
     aws_cloudfront as cf,
+    aws_cloudfront_origins as cf_origins,
     aws_apigateway as apigw,
     aws_lambda as _lambda,
     RemovalPolicy,
@@ -33,6 +34,36 @@ class SnsLambdaS3CloudfrontStack(Stack):
         "expiration": Duration.days(3)
       }],
       block_public_access=s3.BlockPublicAccess.BLOCK_ALL)
+
+    oai = cf.OriginAccessIdentity(
+      self, "OAI", comment="CF S3 connection"
+    )
+    bucket.grant_read(oai)
+    distribution = cf.Distribution(
+      self,
+      "CloudFrontDistribution",
+      minimum_protocol_version=cf.SecurityPolicyProtocol.TLS_V1_2_2018,
+      enable_logging=True,
+      default_behavior=cf.BehaviorOptions(
+        allowed_methods=cf.AllowedMethods.ALLOW_ALL,
+        origin=cf_origins.S3Origin(
+          bucket=bucket,
+          origin_access_identity=oai,
+          origin_path="/",
+        ),
+        viewer_protocol_policy=cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      ),
+      default_root_object="index.html",
+      error_responses=[
+        cf.ErrorResponse(
+          http_status=404,
+          response_page_path="/index.html",
+          ttl=Duration.seconds(amount=0),
+          response_http_status=200,
+        )
+      ],
+    )
+    CfnOutput(self, "CloudFrontDomainName", value=distribution.domain_name)
 
     # Delegating access control to access points
     # https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-policies.html
