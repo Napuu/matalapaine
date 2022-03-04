@@ -155,7 +155,8 @@ import * as util from "./util";
     useEffect(async () => {
       image = await loadWindImage(
         gl,
-        "/forecast/" + date + ".jpeg",
+        // there is now noaa twice in the url :D
+        `/api/noaa/${date}Z_noaa_wind.jpeg`,
         windTexture
       );
       updateProgram.uniforms.imageSizePixels = image.size;
