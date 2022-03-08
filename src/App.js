@@ -30,6 +30,8 @@ function App() {
         container: mapContainer.current,
         style: 'mapbox://styles/palikk/cl0i0f7er000114nuxzu3s5z2',
         center: [lng, lat],
+        disableTouchZoom: true,
+        dragRotate: false,
         minZoom: 1,
         // accessToken: process.env.REACT_APP_MAPBOX_TOKEN,
         accessToken: "pk.eyJ1IjoicGFsaWtrIiwiYSI6ImNsMGh4NGt4ZjA5dmwzY3Vlc2RlMXNxOWoifQ.wlVg2AX9pAVRUexfrSEH-A",
