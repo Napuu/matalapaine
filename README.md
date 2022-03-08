@@ -5,18 +5,45 @@ https://matalapaine.fi
 
 ![preview](public/preview.jpg?raw=true)
 
-Frontend stack consisting of WebGL2, React (Preact), MapLibre JS (Fork of Mapbox GL JS).  
+Frontend stack consisting of WebGL2, React and Mapbox GL JS.  
 I wanted to use WebGL2 as it had some useful new features, mainly possibility to keep particle state at traditional buffers via transform feedbacks instead of using fairly common "hack" where particle state is encoded to and decoded from texture. (Like for example at this nice project https://github.com/mapbox/webgl-wind)  
 
-At backend Go, GDAL and some bash scripts are used to fetch data from Finnish Meteorology Institute and process it from GRIB files to jpeg.
-
-Backgroud map tiles are hosted at Tegola+Postgis. Data from https://www.naturalearthdata.com/
+Weather data is downloaded from [NOAA GFS Open Data registry](https://registry.opendata.aws/noaa-gfs-bdp-pds/) and processed serverlessly with AWS Lambda functions.
 
 ## dev
 
-Change line `image.src = "imgSrc"` to `image.src = "fresh.jpeg"` at `src/webgl.js` to use local version of wind conditions. After that:
+### Using debug wind conditions
+Change line `image.src = "imgSrc"` to `image.src = "debug2.jpeg"` at `src/webgl.js` to use local version of wind conditions. After that:
 ```
 npm i
-npm run dev
+npm start
 ```
-and navigate to `http://localhost:5000`
+and navigate to `http://localhost:3000`
+
+### Or getting the whole stack, including Cloudflare Functions up 
+
+`npx wrangler pages dev --binding CF_DOMAIN=d1w6nxyrz0hwhm.cloudfront.net -- npx react-scripts start`
+
+
+## Infra
+Serverless functions are deployed to AWS with CDK. Deployment is simply done by running `cdk deploy` at `./weather-data` directory. One additional requirement being [GeoLambda](https://github.com/developmentseed/geolambda) zip-files. There are good [instructions](https://github.com/developmentseed/geolambda/blob/master/python/README.md) on how to create them. They're also available here:
+- [lambda-deploy.zip](https://geolambda-zips.s3.eu-west-1.amazonaws.com/lambda-deploy.zip)
+- [lambda-deploy-python.zip](https://geolambda-zips.s3.eu-west-1.amazonaws.com/lambda-deploy-python.zip)
+
+---
+```mermaid
+flowchart
+  subgraph AWS
+    A[NOAA GFS S3 Bucket] -- NewGFSObject --> B[SNS]
+    A-. GRIB file-.->C
+    B-- Triggers --> C[Lambda \n -- \n Downloads GRIB file from NOAA GFS S3 Bucket \n and creates JPEG file out of it and finally\n uploads it to a separate S3 bucket]
+    C-- JPEG file-->D[S3]
+    D-.Available through-.->E[Cloudfront]
+  end
+  subgraph Cloudflare
+    F[Cloudflare Pages]-.-G[Cloudflare Functions]
+    E-- JPEG files -->G
+    F-- Frontend served from -->H[User]
+    G-->H
+  end
+```

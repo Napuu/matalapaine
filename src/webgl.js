@@ -83,7 +83,7 @@ export const loadWindImage = async (gl, imgSrc, texture) => {
     const metadata = "-180 -85.051 180 85.051";
     const image = new Image();
     // debug
-    // image.src = "out2.jpeg";
+    // image.src = "debug2.jpeg";
     image.src = imgSrc;
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
