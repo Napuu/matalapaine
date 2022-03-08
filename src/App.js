@@ -47,7 +47,6 @@ function App() {
         setCanvasLoaded(true);
         const canvas = canvasRef.current;
         const gl = canvas.getContext("webgl2", { antialias: false });
-        console.log("??");
         if (!gl) {
           alert("Unfortunately your browser doesn't support webgl2 :/");
           return;
@@ -63,10 +62,13 @@ function App() {
         // load initial wind texture
         const windTexture = gl.createTexture();
 
+        const date = new Date();
+        date.setMinutes(0);
+        date.setSeconds(0);
         // initial state of animation
         let image = await loadWindImage(
           gl,
-          "/debug2.jpeg",
+          "/api/noaa/wind/" + date.toISOString().slice(0, 19),
           windTexture
         );
         updateProgram.uniforms.imageSizePixels = image.size;
