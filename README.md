@@ -3,7 +3,7 @@ Visualizing wind conditions with WebGL2.
 
 https://matalapaine.fi
 
-![preview](public/preview.jpg?raw=true)
+![preview](public/preview.png?raw=true)
 
 Frontend stack consisting of WebGL2, React and Mapbox GL JS.  
 I wanted to use WebGL2 as it had some useful new features, mainly possibility to keep particle state at traditional buffers via transform feedbacks instead of using fairly common "hack" where particle state is encoded to and decoded from texture. (Like for example at this nice project https://github.com/mapbox/webgl-wind)  
@@ -22,8 +22,8 @@ and navigate to `http://localhost:3000`
 
 ### Or getting the whole stack, including Cloudflare Functions up 
 
-`npx wrangler pages dev --binding CF_DOMAIN=d1w6nxyrz0hwhm.cloudfront.net -- npx react-scripts start`
-
+`npx wrangler pages dev --binding CF_DOMAIN=d1w6nxyrz0hwhm.cloudfront.net -- npx react-scripts start`  
+Up-to-date CF_DOMAIN is the Cloudfront distribution from `cdk deploy` step below.
 
 ## Infra
 Serverless functions are deployed to AWS with CDK. Deployment is simply done by running `cdk deploy` at `./weather-data` directory. One additional requirement being [GeoLambda](https://github.com/developmentseed/geolambda) zip-files. There are good [instructions](https://github.com/developmentseed/geolambda/blob/master/python/README.md) on how to create them. They're also available here:

@@ -133,7 +133,7 @@ function App() {
         map.current.on("movestart", () => {
           state.running = false;
         });
-        const densityMultiplier = disableBlend ? 0.3 : 1;
+        const densityMultiplier = disableBlend ? 0.5 : 1;
         map.current.on("moveend", () => {
           console.debug("moveend");
           state = resetAnimation(
