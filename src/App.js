@@ -47,6 +47,9 @@ function App() {
     }
     if (!canvasLoaded) {
       (async () => {
+        // some features are kind of buggy with chrome/safari + webgl2
+        const userAgent = window.navigator.userAgent;
+        const disableBlend = userAgent.includes("Chrome") || userAgent.includes("Safari");
         setCanvasLoaded(true);
         const canvas = canvasRef.current;
         const gl = canvas.getContext("webgl2", { antialias: false });
@@ -106,10 +109,14 @@ function App() {
             drawParticles(gl, drawProgram, state);
 
             // combination of chrome, webgl2 and blend seems to be kind of buggy
-            gl.enable(gl.BLEND);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            if (!disableBlend) {
+              gl.enable(gl.BLEND);
+              gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            }
             drawScreen(gl, screenProgram, state);
-            gl.disable(gl.BLEND);
+            if (!disableBlend) {
+              gl.disable(gl.BLEND);
+            }
 
             // swap buffers, transformfeedbacks etc.
             const temp = state.current;
@@ -126,13 +133,14 @@ function App() {
         map.current.on("movestart", () => {
           state.running = false;
         });
+        const densityMultiplier = disableBlend ? 0.3 : 1;
         map.current.on("moveend", () => {
           console.debug("moveend");
           state = resetAnimation(
             gl,
             canvas,
             pxRatio,
-            particleDensity / Math.cbrt(map.current.getZoom()),
+            densityMultiplier * particleDensity / Math.cbrt(map.current.getZoom()),
             drawProgram,
             updateProgram
           );
