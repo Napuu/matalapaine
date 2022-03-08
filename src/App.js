@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from "mapbox-gl";
+// eslint-disable-next-line import/no-webpack-loader-syntax
+import mapboxgl from "!mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import {
@@ -47,6 +48,7 @@ function App() {
         setCanvasLoaded(true);
         const canvas = canvasRef.current;
         const gl = canvas.getContext("webgl2", { antialias: false });
+        console.log("haloo");
         if (!gl) {
           alert("Unfortunately your browser doesn't support webgl2 :/");
           return;
