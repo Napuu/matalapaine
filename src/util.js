@@ -69,16 +69,26 @@ export function createTexture(gl, filter, data, width, height) {
 export function getColorRamp() {
   // ramp implementation stolen from this awesome project
   // https://github.com/mapbox/webgl-wind
-  const colors = {
-    0.0: "#ffffe5",
-    0.1: "#fff7bc",
-    0.2: "#fee391",
-    0.3: "#fec44f",
-    0.4: "#fe9929",
-    0.5: "#ec7014",
-    0.6: "#cc4c02",
-    1.0: "#8c2d04",
-  };
+  const colors4 = {
+    /*
+    #ffffd9
+    #edf8b1
+    #c7e9b4
+    #7fcdbb
+    #41b6c4
+    #1d91c0
+    #225ea8
+    #0c2c84
+    */
+    0.0: "#ffffd9",
+    0.1: "#edf8b1",
+    0.2: "#c7e9b4",
+    0.3: "#7fcdbb",
+    0.4: "#41b6c4",
+    0.5: "#1d91c0",
+    0.6: "#225ea8",
+    1.0: "#0c2c84",
+  }
   const canvas = document.createElement("canvas");
   canvas.id = "ramp";
   const ctx = canvas.getContext("2d");
@@ -87,8 +97,8 @@ export function getColorRamp() {
   canvas.height = 1;
 
   const gradient = ctx.createLinearGradient(0, 0, 256, 0);
-  for (const stop in colors) {
-    gradient.addColorStop(stop, colors[stop]);
+  for (const stop in colors4) {
+    gradient.addColorStop(stop, colors4[stop]);
   }
 
   ctx.fillStyle = gradient;

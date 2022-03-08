@@ -1,4 +1,5 @@
-#version 300 es
+// workaround to avoid ejecting react app
+const string = `#version 300 es
 precision highp float;
 
 uniform sampler2D u_screen;
@@ -11,4 +12,5 @@ void main() {
   vec4 color = texture(u_screen, 1.0 - v_tex_pos);
   // a hack to guarantee opacity fade out even with a value close to 1.0
   outColor = vec4(floor(255.0 * color * u_opacity) / 255.0);
-}
+}`
+export default string

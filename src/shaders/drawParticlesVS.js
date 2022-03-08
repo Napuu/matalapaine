@@ -1,4 +1,5 @@
-#version 300 es
+// workaround to avoid ejecting react app
+const string = `#version 300 es
 in vec4 position;
 uniform mat4 matrix;
 
@@ -47,4 +48,5 @@ void main() {
   }
   gl_Position = matrix * position;
   gl_PointSize = 2.0;
-}
+}`
+export default string

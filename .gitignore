@@ -1,3 +1,8 @@
 public/bundle.js
 public/bundle.js.map
 node_modules/
+tiles
+cdk.out
+cpython
+build
+__pycache__

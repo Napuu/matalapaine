@@ -1,9 +1,9 @@
-import updatePositionVS from "./shaders/updatePositionVS.glsl";
-import drawParticlesVS from "./shaders/drawParticlesVS.glsl";
-import drawParticlesFS from "./shaders/drawParticlesFS.glsl";
-import screenFS from "./shaders/screenFS.glsl";
-import quadVS from "./shaders/quadVS.glsl";
-import updatePositionFS from "./shaders/updatePositionFS.glsl";
+import updatePositionVS from "./shaders/updatePositionVS.js";
+import drawParticlesVS from "./shaders/drawParticlesVS.js";
+import drawParticlesFS from "./shaders/drawParticlesFS.js";
+import screenFS from "./shaders/screenFS.js";
+import quadVS from "./shaders/quadVS.js";
+import updatePositionFS from "./shaders/updatePositionFS.js";
 import proj4 from "proj4";
 import * as util from "./util";
 
@@ -22,6 +22,7 @@ export const createScreenProgram = (gl) => {
 };
 
 export const initPrograms = (gl) => {
+  console.log(updatePositionFS)
   const temp = {
     updateProgram: {
       program: util.createProgram(gl, updatePositionVS, updatePositionFS, [
@@ -218,7 +219,7 @@ export const drawFadedPreviousFrame = (gl, container, state) => {
   util.bindFramebuffer(gl, state.framebuffer, state.next.texture);
   util.drawTexture(
     state.current.texture,
-    0.995,
+    0.99999,
     state.quadBuffer,
     container.program,
     gl,

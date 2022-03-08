@@ -1,34 +1,40 @@
 {
-  "name": "weather-dashboard-front",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "build": "rollup -c",
-    "watch": "rollup -c -w",
-    "dev": "npm-run-all --parallel start-only-server watch",
-    "start-only-server": "serve public",
-    "lint": "prettier --write src"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@rollup/plugin-commonjs": "17.0.0",
-    "@rollup/plugin-node-resolve": "11.0.1",
-    "npm-run-all": "4.1.5",
-    "parcel-bundler": "1.12.4",
-    "prettier": "^2.2.1",
-    "rollup": "2.35.1",
-    "rollup-plugin-glsl": "1.3.0",
-    "rollup-plugin-html-entry": "0.3.0",
-    "rollup-plugin-terser": "7.0.2",
-    "serve": "11.3.2"
-  },
+  "name": "proper-react",
+  "version": "0.1.0",
+  "private": true,
   "dependencies": {
-    "htm": "^3.0.4",
-    "maplibre-gl": "1.13.0-rc.4",
-    "preact": "^10.5.7",
-    "proj4": "2.6.3"
+    "@testing-library/jest-dom": "^5.16.2",
+    "@testing-library/react": "^12.1.3",
+    "@testing-library/user-event": "^13.5.0",
+    "mapbox-gl": "^2.7.0",
+    "proj4": "^2.7.5",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-scripts": "5.0.0",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }

@@ -1,4 +1,5 @@
-#version 300 es
+// workaround to avoid ejecting react app
+const string = `#version 300 es
 precision highp float;
 in vec2 oldPosition;
 
@@ -51,4 +52,5 @@ void main() {
   vec2 randPos2 = randPos(seed, oldPosition * seed3);
   //vec2 randPos2 = vec
   newPosition = mix(temp, randPos2, reset);
-}
+}`
+export default string
