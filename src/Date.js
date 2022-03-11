@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Box, Paper, Tooltip, Typography, IconButton, Fade, Slide } from "@mui/material";
 import moment from "moment";
 import { InfoOutlined, AccessTime, Update, Close, ArrowRight } from '@mui/icons-material';
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 const useInterval = (callback, delay) => {
   const savedCallback = React.useRef();
@@ -41,27 +42,25 @@ const Container = React.forwardRef((props, ref) => (
   }}>{props.children}</Paper>
 ));
 
-
 const Date = ({ date }) => {
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const toggleTooltip = () => {
     setTooltipOpen(!tooltipOpen);
   };
-  const [current, setCurrent] = useState(moment());
-  const [visible, setVisible] = useState(true);
-  const [initialMountDone, setInitialMountDone] = useState(false);
-  useInterval(() => {
-    setCurrent(moment());
-  }, 1000);
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const close = () => {
-    setVisible(false);
     setTooltipOpen(false);
-    setInitialMountDone(true);
+    const params = new URLSearchParams(searchParams);
+    params.set("dateclosed", 1);
+    setSearchParams(params);
   };
 
   const open = () => {
-    setVisible(true);
+    const params = new URLSearchParams(searchParams);
+    params.delete("dateclosed");
+    setSearchParams(params);
   }
 
   const boxProps = {
@@ -76,11 +75,12 @@ const Date = ({ date }) => {
       marginRight: "6px",
     }
   };
+  const visible = searchParams.get("dateclosed") !== "1";
   if (!date) {
     return null;
   }
   return (<>
-    <Slide style={{ transitionDuration: initialMountDone ? "200ms" : "0ms",  transitionDelay: visible ? '300ms' : '0ms' }} direction="right" in={visible} mountOnEnter unmountOnExit>
+    <Slide style={{ transitionDelay: visible ? '300ms' : '0ms' }} direction="right" in={visible} mountOnEnter unmountOnExit>
       <Container>
         <Box display={"flex"} flexDirection={"column"}>
           <Box {...boxProps}>
