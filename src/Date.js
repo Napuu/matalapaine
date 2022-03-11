@@ -29,19 +29,17 @@ const UpdatingDate = () => {
   </Typography>;
 };
 
-const Container = ({ children }) => {
-  return (
-    <Paper style={{
-      color: "rgba(103, 221, 142, 0.87)",
-      background: "rgba(10, 10, 10, 0.7)",
-      position: "absolute",
-      zIndex: 999,
-      margin: "10px",
-      padding: "10px",
-      display: "flex",
-    }}>{children}</Paper>
-  );
-};
+const Container = React.forwardRef((props, ref) => (
+  <Paper ref={ref} style={{
+    color: "rgba(103, 221, 142, 0.87)",
+    background: "rgba(10, 10, 10, 0.7)",
+    position: "absolute",
+    zIndex: 999,
+    margin: "10px",
+    padding: "10px",
+    display: "flex",
+  }}>{props.children}</Paper>
+));
 
 
 const Date = ({ date }) => {
@@ -50,10 +48,21 @@ const Date = ({ date }) => {
     setTooltipOpen(!tooltipOpen);
   };
   const [current, setCurrent] = useState(moment());
-  const [open, setOpen] = useState(true);
+  const [visible, setVisible] = useState(true);
+  const [initialMountDone, setInitialMountDone] = useState(false);
   useInterval(() => {
     setCurrent(moment());
   }, 1000);
+
+  const close = () => {
+    setVisible(false);
+    setTooltipOpen(false);
+    setInitialMountDone(true);
+  };
+
+  const open = () => {
+    setVisible(true);
+  }
 
   const boxProps = {
     display: "flex",
@@ -71,42 +80,46 @@ const Date = ({ date }) => {
     return null;
   }
   return (<>
-    <Container>
-      <Box display={"flex"} flexDirection={"column"}>
-        <Box {...boxProps}>
-          <AccessTime {...iconProps} /><UpdatingDate />
+    <Slide style={{ transitionDuration: initialMountDone ? "200ms" : "0ms",  transitionDelay: visible ? '300ms' : '0ms' }} direction="right" in={visible} mountOnEnter unmountOnExit>
+      <Container>
+        <Box display={"flex"} flexDirection={"column"}>
+          <Box {...boxProps}>
+            <AccessTime {...iconProps} /><UpdatingDate />
+          </Box>
+          <Box {...boxProps}>
+            <Update {...iconProps} sx={{
+              // Update icon seems to be slightly different size than AccessTime
+              transform: "scale(1.1125)",
+            }} />
+            <Typography>
+              {date.format('MMMM Do YYYY, HH.00.00')}
+            </Typography>
+          </Box>
         </Box>
-        <Box {...boxProps}>
-          <Update {...iconProps} sx={{
-            // Update icon seems to be slightly different size than AccessTime
-            transform: "scale(1.1125)",
-          }} />
-          <Typography>
-            {date.format('MMMM Do YYYY, HH.00.00')}
-          </Typography>
-        </Box>
-      </Box>
-      <Box display="flex" flexDirection="column">
-        <IconButton onClick={() => { setOpen(false); }} sx={{ padding: 0 }}>
-          <Close htmlColor="rgba(103, 221, 142, 0.87)" fontSize="small" />
-        </IconButton>
-        <Tooltip
-          placement='right'
-          style={{ padding: "10px" }}
-          title={<>
-            <Typography>Source available at <a href="https://github.com/napuu/matalapaine">GitHub</a></Typography>
-            <Typography>Weather data itself is from NOAA</Typography>
-          </>} open={tooltipOpen}>
-          <IconButton onClick={toggleTooltip}>
-            <InfoOutlined htmlColor="rgba(103, 221, 142, 0.87)" fontSize="small" />
+        <Box display="flex" flexDirection="column">
+          <IconButton onClick={close} sx={{ padding: 0 }}>
+            <Close htmlColor="rgba(103, 221, 142, 0.87)" fontSize="small" />
           </IconButton>
-        </Tooltip>
-      </Box>
-    </Container>
-    <Container>
-      <IconButton
-        onClick={() => { setOpen(true); }}><ArrowRight htmlColor="rgba(103, 221, 142, 0.87)" /></IconButton>
-    </Container>
+          <Tooltip
+            placement='right'
+            style={{ padding: "10px" }}
+            title={<>
+              <Typography>Source available at <a href="https://github.com/napuu/matalapaine">GitHub</a></Typography>
+              <Typography>Weather data itself is from NOAA</Typography>
+            </>} open={tooltipOpen}>
+            <IconButton onClick={toggleTooltip}>
+              <InfoOutlined htmlColor="rgba(103, 221, 142, 0.87)" fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Container>
+    </Slide>
+    <Slide style={{ transitionDelay: visible ? '0ms' : '300ms' }} direction="right" in={!visible} mountOnEnter unmountOnExit>
+      <Container>
+        <IconButton
+          onClick={open}><ArrowRight htmlColor="rgba(103, 221, 142, 0.87)" /></IconButton>
+      </Container>
+    </Slide>
   </>
   );
 };
