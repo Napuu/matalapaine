@@ -37,7 +37,6 @@ const Container = React.forwardRef((props, ref) => (
     position: "absolute",
     zIndex: 999,
     margin: "10px",
-    padding: "10px",
     display: "flex",
   }}>{props.children}</Paper>
 ));
@@ -117,7 +116,7 @@ const Date = ({ date }) => {
     <Slide style={{ transitionDelay: visible ? '0ms' : '300ms' }} direction="right" in={!visible} mountOnEnter unmountOnExit>
       <Container>
         <IconButton
-          onClick={open}><ArrowRight htmlColor="rgba(103, 221, 142, 0.87)" /></IconButton>
+          onClick={open}><ArrowRight fontSize='large' htmlColor="rgba(103, 221, 142, 0.87)" /></IconButton>
       </Container>
     </Slide>
   </>

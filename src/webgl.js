@@ -22,7 +22,6 @@ export const createScreenProgram = (gl) => {
 };
 
 export const initPrograms = (gl) => {
-  console.log(updatePositionFS)
   const temp = {
     updateProgram: {
       program: util.createProgram(gl, updatePositionVS, updatePositionFS, [

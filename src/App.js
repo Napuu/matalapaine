@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { BrowserRouter, useSearchParams } from 'react-router-dom';
+import { QueryClient, QueryClientProvider, useQuery } from 'react-query'
 import Map from './Map';
 function App() {
   return (
-    <Map />
+    <BrowserRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <Map />
+      </QueryClientProvider>
+    </BrowserRouter>
   );
 }
 

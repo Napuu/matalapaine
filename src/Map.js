@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 // eslint-disable-next-line import/no-webpack-loader-syntax
 import mapboxgl from "!mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import DateObject from "./Date";
 import moment from "moment";
+import { useQueryClient } from "react-query";
 
 import {
   initPrograms,
@@ -16,18 +17,34 @@ import {
   resetAnimation,
 } from "./webgl";
 import * as util from "./util";
+import { useSearchParams } from 'react-router-dom';
 
 function Map() {
   const canvasRef = useRef(null);
   const [canvasLoaded, setCanvasLoaded] = useState(false);
 
   const dateRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsRef = useRef();
+
+  // map and it's listeners live outside React
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
 
   const mapContainer = useRef(null);
   const map = useRef(null);
-  const [lng, setLng] = useState(6.582265);
-  const [lat, setLat] = useState(55.875950);
-  const [zoom, setZoom] = useState(2);
+  const lng = searchParams.get("lng") || 6.582265;
+  const lat = searchParams.get("lat") || 55.875950;
+  const zoom = searchParams.get("zoom") || 4;
+
+  const glRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    glRef.current = canvas.getContext("webgl2", { antialias: false });
+  }, []);
+
+  const initializing = useRef(true);
   useEffect(() => {
     if (!map.current) {
       map.current = new mapboxgl.Map({
@@ -45,9 +62,11 @@ function Map() {
       });
       map.current.on("moveend", () => {
         const center = map.current.getCenter();
-        setLat(center.lat);
-        setLng(center.lng);
-        setZoom(map.current.getZoom());
+        const params = new URLSearchParams(searchParamsRef.current);
+        params.set("lat", center.lat.toFixed(6));
+        params.set("lng", center.lng.toFixed(6));
+        params.set("zoom", map.current.getZoom().toFixed(2));
+        setSearchParams(params);
       });
     }
     if (!canvasLoaded) {
@@ -57,8 +76,7 @@ function Map() {
         const disableBlend = userAgent.includes("Chrome") || userAgent.includes("Safari");
         setCanvasLoaded(true);
         const canvas = canvasRef.current;
-        const gl = canvas.getContext("webgl2", { antialias: false });
-        console.log("haloo");
+        const gl = glRef.current;
         if (!gl) {
           alert("Unfortunately your browser doesn't support webgl2 :/");
           return;
@@ -95,10 +113,7 @@ function Map() {
         let then = 0;
         const render = (time) => {
           if (!state.running) {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-            util.bindFramebuffer(gl, state.framebuffer, state.current.texture);
-            gl.clear(gl.COLOR_BUFFER_BIT);
+            util.clearCanvas(gl);
           } else {
             time *= 0.001;
             const deltaTime = time - then;
@@ -129,27 +144,29 @@ function Map() {
           }
           requestAnimationFrame(render);
         };
-        map.current.on("load", () => {
-          updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
-          map.current.fitBounds([-28, 65, 39, 65]);
-          requestAnimationFrame(render);
-        });
-        map.current.on("movestart", () => {
-          state.running = false;
-        });
-        const densityMultiplier = disableBlend ? 0.5 : 1;
-        map.current.on("moveend", () => {
-          console.debug("moveend");
+        const refresh = () => {
           state = resetAnimation(
             gl,
             canvas,
             pxRatio,
-            densityMultiplier * particleDensity / Math.cbrt(map.current.getZoom()),
+            (disableBlend ? 0.5 : 1) * particleDensity / Math.cbrt(map.current.getZoom()),
             drawProgram,
             updateProgram
           );
           state.running = true;
           updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
+        };
+        map.current.on("load", () => {
+          console.log("loaded");
+          updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
+          requestAnimationFrame(render);
+          refresh();
+        });
+        map.current.on("movestart", () => {
+          state.running = false;
+        });
+        map.current.on("moveend", () => {
+          refresh();
         });
       })();
     }

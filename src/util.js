@@ -88,7 +88,7 @@ export function getColorRamp() {
     0.5: "#1d91c0",
     0.6: "#225ea8",
     1.0: "#0c2c84",
-  }
+  };
   const canvas = document.createElement("canvas");
   canvas.id = "ramp";
   const ctx = canvas.getContext("2d");
@@ -242,6 +242,11 @@ export function lookupWindspeed(drawProgram, image, map, x, y, state) {
     );
   }
   return windspeedMeters;
+}
+
+export function clearCanvas(gl) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.clear(gl.COLOR_BUFFER_BIT);
 }
 
 export function debounce(func, timeout = 400) {
