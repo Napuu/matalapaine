@@ -226,7 +226,16 @@ export const drawFadedPreviousFrame = (gl, container, state) => {
   );
 };
 
-export const drawScreen = (gl, container, state) => {
+export const drawScreen = (gl, container, state, disableBlend, drawProgram) => {
+  drawFadedPreviousFrame(gl, container, state);
+
+  drawParticles(gl, drawProgram, state);
+
+  // combination of chrome, webgl2 and blend seems to be kind of buggy
+  if (!disableBlend) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  }
   util.bindFramebuffer(gl, null);
   util.drawTexture(
     state.current.texture,
@@ -236,6 +245,9 @@ export const drawScreen = (gl, container, state) => {
     gl,
     container.locations
   );
+  if (!disableBlend) {
+    gl.disable(gl.BLEND);
+  }
 };
 
 export const initState = (gl, numParticles, pxRatio) => {

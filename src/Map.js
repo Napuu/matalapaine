@@ -10,9 +10,7 @@ import {
   initPrograms,
   loadWindImage,
   updateParticles,
-  drawParticles,
   drawScreen,
-  drawFadedPreviousFrame,
   updateLayerBounds,
   resetAnimation,
 } from "./webgl";
@@ -44,7 +42,18 @@ function Map() {
     glRef.current = canvas.getContext("webgl2", { antialias: false });
   }, []);
 
-  const initializing = useRef(true);
+  const [animationDate, setAnimationDate] = useState(null);
+
+  const animationState = useRef(null);
+  const drawProgram = useRef(null);
+  const updateProgram = useRef(null);
+  const screenProgram = useRef(null);
+  const windTexture = useRef(null);
+
+  useEffect(() => {
+
+  }, [animationDate]);
+
   useEffect(() => {
     if (!map.current) {
       map.current = new mapboxgl.Map({
@@ -60,37 +69,26 @@ function Map() {
         zoom: zoom,
         renderWorldCopies: false,
       });
-      map.current.on("moveend", () => {
-        const center = map.current.getCenter();
-        const params = new URLSearchParams(searchParamsRef.current);
-        params.set("lat", center.lat.toFixed(6));
-        params.set("lng", center.lng.toFixed(6));
-        params.set("zoom", map.current.getZoom().toFixed(2));
-        setSearchParams(params);
-      });
-    }
-    if (!canvasLoaded) {
       (async () => {
         // some features are kind of buggy with chrome/safari + webgl2
         const userAgent = window.navigator.userAgent;
         const disableBlend = userAgent.includes("Chrome") || userAgent.includes("Safari");
         setCanvasLoaded(true);
-        const canvas = canvasRef.current;
         const gl = glRef.current;
         if (!gl) {
           alert("Unfortunately your browser doesn't support webgl2 :/");
           return;
         }
         const pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
-        canvas.width = canvas.clientWidth * pxRatio;
-        canvas.height = canvas.clientHeight * pxRatio;
+        canvasRef.current.width = canvasRef.current.clientWidth * pxRatio;
+        canvasRef.current.height = canvasRef.current.clientHeight * pxRatio;
         const particleDensity = 1.5;
 
         // init webgl programs
         const { updateProgram, drawProgram, screenProgram } = initPrograms(gl);
 
         // load initial wind texture
-        const windTexture = gl.createTexture();
+        windTexture.current = gl.createTexture();
 
         const date = moment().add(1, "hour");
         dateRef.current = date;
@@ -98,13 +96,13 @@ function Map() {
         let image = await loadWindImage(
           gl,
           "/api/noaa/wind/" + date.clone().utc().format("YYYY-MM-DDTHH:00:00"),
-          windTexture
+          windTexture.current
         );
         updateProgram.uniforms.imageSizePixels = image.size;
         drawProgram.uniforms.imageSizePixels = image.size;
-        let state = resetAnimation(
+        animationState.current = resetAnimation(
           gl,
-          canvas,
+          canvasRef.current,
           pxRatio,
           particleDensity,
           drawProgram,
@@ -112,48 +110,38 @@ function Map() {
         );
         let then = 0;
         const render = (time) => {
-          if (!state.running) {
+          if (!animationState.current.running) {
             util.clearCanvas(gl);
           } else {
+            //actualRender(time, then, updateProgram, screenProgram, drawProgram, windTexture.current, gl, animationState.current, disableBlend);
+            
             time *= 0.001;
             const deltaTime = time - then;
             then = time;
 
             updateProgram.uniforms.seed = Math.random();
             updateProgram.uniforms.deltaTime = deltaTime;
-            updateParticles(gl, updateProgram, state, windTexture);
+            updateParticles(gl, updateProgram, animationState.current, windTexture.current);
 
-            drawFadedPreviousFrame(gl, screenProgram, state);
-
-            drawParticles(gl, drawProgram, state);
-
-            // combination of chrome, webgl2 and blend seems to be kind of buggy
-            if (!disableBlend) {
-              gl.enable(gl.BLEND);
-              gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            }
-            drawScreen(gl, screenProgram, state);
-            if (!disableBlend) {
-              gl.disable(gl.BLEND);
-            }
+            drawScreen(gl, screenProgram, animationState.current, disableBlend, drawProgram);
 
             // swap buffers, transformfeedbacks etc.
-            const temp = state.current;
-            state.current = state.next;
-            state.next = temp;
+            const temp = animationState.current.current;
+            animationState.current.current = animationState.current.next;
+            animationState.current.next = temp;
           }
           requestAnimationFrame(render);
         };
         const refresh = () => {
-          state = resetAnimation(
+          animationState.current= resetAnimation(
             gl,
-            canvas,
+            canvasRef.current,
             pxRatio,
             (disableBlend ? 0.5 : 1) * particleDensity / Math.cbrt(map.current.getZoom()),
             drawProgram,
             updateProgram
           );
-          state.running = true;
+          animationState.current.running = true;
           updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
         };
         map.current.on("load", () => {
@@ -163,9 +151,15 @@ function Map() {
           refresh();
         });
         map.current.on("movestart", () => {
-          state.running = false;
+          animationState.current.running = false;
         });
         map.current.on("moveend", () => {
+          const center = map.current.getCenter();
+          const params = new URLSearchParams(searchParamsRef.current);
+          params.set("lat", center.lat.toFixed(6));
+          params.set("lng", center.lng.toFixed(6));
+          params.set("zoom", map.current.getZoom().toFixed(2));
+          setSearchParams(params);
           refresh();
         });
       })();
