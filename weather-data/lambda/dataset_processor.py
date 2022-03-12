@@ -38,9 +38,9 @@ def process_dataset(file_in: str, file_out: str, tmp_file: str, mode: str) -> st
     int(ds.GetRasterBand(1).GetMetadataItem('GRIB_VALID_TIME').replace("sec UTC", ""))
   )
   valid_timestring = ds_time.strftime('%Y-%m-%dT%H:%M:%S')
-  # if ds_time is more than 6 hours in the future, discard it
+  # if ds_time is more than 12 hours in the future, discard it
   # this should be parsed directly from the filename, but this works out too
-  if (ds_time - datetime.utcnow()).total_seconds() > 6 * 60 * 60:
+  if (ds_time - datetime.utcnow()).total_seconds() > 12 * 60 * 60:
     return {
       "status": "noop",
       "valid_timestring": valid_timestring,

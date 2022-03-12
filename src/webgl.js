@@ -22,7 +22,6 @@ export const createScreenProgram = (gl) => {
 };
 
 export const initPrograms = (gl) => {
-  console.log(updatePositionFS)
   const temp = {
     updateProgram: {
       program: util.createProgram(gl, updatePositionVS, updatePositionFS, [
@@ -77,6 +76,7 @@ export const initPrograms = (gl) => {
 };
 
 export const loadWindImage = async (gl, imgSrc, texture) => {
+  if (!gl) return;
   return new Promise(async (resolve, _reject) => {
     // using hardcoded metadata now as only one forecast source is used
     // const metadata = await (await fetch(imgSrc + ".meta")).text();
@@ -170,7 +170,9 @@ const setUniforms = (gl, program, locs, values) => {
   });
 };
 
-export const updateParticles = (gl, container, state, texture) => {
+export const updateParticles = (gl, container, state, texture, deltaTime) => {
+  container.uniforms.seed = Math.random();
+  container.uniforms.deltaTime = deltaTime;
   gl.useProgram(container.program);
 
   gl.activeTexture(gl.TEXTURE3);
@@ -227,7 +229,16 @@ export const drawFadedPreviousFrame = (gl, container, state) => {
   );
 };
 
-export const drawScreen = (gl, container, state) => {
+export const drawScreen = (gl, container, state, disableBlend, drawProgram) => {
+  drawFadedPreviousFrame(gl, container, state);
+
+  drawParticles(gl, drawProgram, state);
+
+  // combination of chrome, webgl2 and blend seems to be kind of buggy
+  if (!disableBlend) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  }
   util.bindFramebuffer(gl, null);
   util.drawTexture(
     state.current.texture,
@@ -237,6 +248,9 @@ export const drawScreen = (gl, container, state) => {
     gl,
     container.locations
   );
+  if (!disableBlend) {
+    gl.disable(gl.BLEND);
+  }
 };
 
 export const initState = (gl, numParticles, pxRatio) => {
@@ -348,3 +362,9 @@ export const updateLayerBounds = (
   drawProgram.uniforms.windLookup2CanvasRatio = windLookup2CanvasRatio;
   drawProgram.uniforms.windLookupOffset = windLookupOffset;
 };
+
+export const swapBuffers = (state) => {
+  const temp = state.current;
+  state.current = state.next;
+  state.next = temp;
+}
