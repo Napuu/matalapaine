@@ -69,18 +69,18 @@ function Map() {
         container: mapContainer.current,
         style: 'mapbox://styles/palikk/cl0i0f7er000114nuxzu3s5z2',
         center: [lng, lat],
-        dragRotate: false,
-        touchZoomRotate: false,
         minZoom: 1,
         // accessToken: process.env.REACT_APP_MAPBOX_TOKEN,
         accessToken: "pk.eyJ1IjoicGFsaWtrIiwiYSI6ImNsMGh4NGt4ZjA5dmwzY3Vlc2RlMXNxOWoifQ.wlVg2AX9pAVRUexfrSEH-A",
         zoom: zoom,
         renderWorldCopies: false,
       });
+      map.current.dragRotate.disable();
+      map.current.touchZoomRotate.disableRotation();
       (async () => {
         // some features are kind of buggy with chrome/safari + webgl2
         const userAgent = window.navigator.userAgent;
-        const disableBlend = userAgent.includes("Chrome") || userAgent.includes("Safari");
+        const disableBlend = userAgent.includes("Chrome") || userAgent.includes("Safari") || userAgent.includes("Mobile");
         const gl = glRef.current;
         if (!gl) {
           alert("Unfortunately your browser doesn't support webgl2 :/");

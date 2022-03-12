@@ -43,7 +43,7 @@ const Selector = ({ date, setDate }) => {
   };
 
   useInterval(() => {
-    if (autoUpdate && date.utc().hour() !== moment().utc().hour()) {
+    if (autoUpdate) {
       handleReset();
     }
   }, 5000);
