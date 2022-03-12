@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 // eslint-disable-next-line import/no-webpack-loader-syntax
 import mapboxgl from "!mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import DateObject from "./Date";
 import moment from "moment";
-import { useQueryClient } from "react-query";
 
 import {
   initPrograms,
@@ -17,14 +16,11 @@ import {
 } from "./webgl";
 import * as util from "./util";
 import { useSearchParams } from 'react-router-dom';
-import Selector from './Selector';
-import { Box } from '@mui/material';
 
 function Map() {
   const canvasRef = useRef(null);
 
-  //const dateRef = useRef(moment().add(1, "hour"));
-  const dateRef = useRef(moment());
+  const dateRef = useRef(moment().add(1, "hour"));
   const [searchParams, setSearchParams] = useSearchParams();
   const searchParamsRef = useRef();
 
@@ -60,9 +56,11 @@ function Map() {
   }, []);
 
   const animationState = useRef(null);
+  /*
   const drawProgram = useRef(null);
   const updateProgram = useRef(null);
   const screenProgram = useRef(null);
+  */
   const windTexture = useRef(null);
 
   useEffect(() => {

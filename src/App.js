@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter, useSearchParams } from 'react-router-dom';
-import { QueryClient, QueryClientProvider, useQuery } from 'react-query'
+import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query'
 import Map from './Map';
 function App() {
   return (
