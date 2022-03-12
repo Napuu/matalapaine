@@ -21,24 +21,20 @@ const Selector = ({ date, setDate }) => {
   const handlePrevClick = () => {
     resetAvailable();
     const newDate = date.clone().add(-1, "hour");
-    if (Math.abs(moment().diff(newDate, "hours")) > hours) {
-      setPrevAvailable(false);
-      return;
-    }
     setDate(newDate);
-    setPrevAvailable(true);
     setAutoUpdate(false);
+    if (Math.abs(moment().diff(newDate, "hours")) >= hours) {
+      setPrevAvailable(false);
+    }
   };
   const handleNextClick = () => {
     resetAvailable();
     const newDate = date.clone().add(1, "hour");
-    if (Math.abs(date.diff(moment(), "hours")) > hours) {
-      setNextAvailable(false);
-      return;
-    }
-    setNextAvailable(true);
     setDate(newDate);
     setAutoUpdate(false);
+    if (Math.abs(moment().diff(newDate, "hours")) > hours) {
+      setNextAvailable(false);
+    }
   };
   const handleReset = () => {
     resetAvailable();
