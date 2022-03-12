@@ -13,15 +13,18 @@ import {
   drawScreen,
   updateLayerBounds,
   resetAnimation,
+  swapBuffers as swapStates,
 } from "./webgl";
 import * as util from "./util";
 import { useSearchParams } from 'react-router-dom';
+import Selector from './Selector';
+import { Box } from '@mui/material';
 
 function Map() {
   const canvasRef = useRef(null);
-  const [canvasLoaded, setCanvasLoaded] = useState(false);
 
-  const dateRef = useRef(null);
+  //const dateRef = useRef(moment().add(1, "hour"));
+  const dateRef = useRef(moment());
   const [searchParams, setSearchParams] = useSearchParams();
   const searchParamsRef = useRef();
 
@@ -34,7 +37,21 @@ function Map() {
   const map = useRef(null);
   const lng = searchParams.get("lng") || 6.582265;
   const lat = searchParams.get("lat") || 55.875950;
-  const zoom = searchParams.get("zoom") || 4;
+  const zoom = searchParams.get("zoom") || 2;
+
+  const [date, setDate] = useState(dateRef.current);
+
+  useEffect(() => {
+    (async () => {
+      dateRef.current = date;
+      await loadWindImage(
+        glRef.current,
+        // "/debug2.jpeg",
+        "/api/noaa/wind/" + dateRef.current.clone().utc().format("YYYY-MM-DDTHH:00:00"),
+        windTexture.current
+      );
+    })();
+  }, [date]);
 
   const glRef = useRef(null);
   useEffect(() => {
@@ -42,17 +59,11 @@ function Map() {
     glRef.current = canvas.getContext("webgl2", { antialias: false });
   }, []);
 
-  const [animationDate, setAnimationDate] = useState(null);
-
   const animationState = useRef(null);
   const drawProgram = useRef(null);
   const updateProgram = useRef(null);
   const screenProgram = useRef(null);
   const windTexture = useRef(null);
-
-  useEffect(() => {
-
-  }, [animationDate]);
 
   useEffect(() => {
     if (!map.current) {
@@ -73,7 +84,7 @@ function Map() {
         // some features are kind of buggy with chrome/safari + webgl2
         const userAgent = window.navigator.userAgent;
         const disableBlend = userAgent.includes("Chrome") || userAgent.includes("Safari");
-        setCanvasLoaded(true);
+        // setCanvasLoaded(true);
         const gl = glRef.current;
         if (!gl) {
           alert("Unfortunately your browser doesn't support webgl2 :/");
@@ -90,12 +101,10 @@ function Map() {
         // load initial wind texture
         windTexture.current = gl.createTexture();
 
-        const date = moment().add(1, "hour");
-        dateRef.current = date;
         // initial state of animation
         let image = await loadWindImage(
           gl,
-          "/api/noaa/wind/" + date.clone().utc().format("YYYY-MM-DDTHH:00:00"),
+          "/api/noaa/wind/" + dateRef.current.clone().utc().format("YYYY-MM-DDTHH:00:00"),
           windTexture.current
         );
         updateProgram.uniforms.imageSizePixels = image.size;
@@ -109,31 +118,24 @@ function Map() {
           updateProgram
         );
         let then = 0;
-        const render = (time) => {
+        const tick = (time) => {
           if (!animationState.current.running) {
             util.clearCanvas(gl);
           } else {
-            //actualRender(time, then, updateProgram, screenProgram, drawProgram, windTexture.current, gl, animationState.current, disableBlend);
-            
             time *= 0.001;
             const deltaTime = time - then;
             then = time;
 
-            updateProgram.uniforms.seed = Math.random();
-            updateProgram.uniforms.deltaTime = deltaTime;
-            updateParticles(gl, updateProgram, animationState.current, windTexture.current);
+            updateParticles(gl, updateProgram, animationState.current, windTexture.current, deltaTime);
 
             drawScreen(gl, screenProgram, animationState.current, disableBlend, drawProgram);
 
-            // swap buffers, transformfeedbacks etc.
-            const temp = animationState.current.current;
-            animationState.current.current = animationState.current.next;
-            animationState.current.next = temp;
+            swapStates(animationState.current);
           }
-          requestAnimationFrame(render);
+          requestAnimationFrame(tick);
         };
         const refresh = () => {
-          animationState.current= resetAnimation(
+          animationState.current = resetAnimation(
             gl,
             canvasRef.current,
             pxRatio,
@@ -147,7 +149,7 @@ function Map() {
         map.current.on("load", () => {
           console.log("loaded");
           updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
-          requestAnimationFrame(render);
+          requestAnimationFrame(tick);
           refresh();
         });
         map.current.on("movestart", () => {
@@ -169,7 +171,7 @@ function Map() {
 
   return (
     <div className="Map">
-      <DateObject date={dateRef.current} />
+      <DateObject date={date} setDate={setDate} />
       <canvas style={{ left: "0px", height: "100vh", width: "100vw", position: "absolute", pointerEvents: "none", zIndex: 99 }} ref={canvasRef}></canvas>
       <div style={{ height: "100vh" }} ref={mapContainer} className="map-container" />
     </div>

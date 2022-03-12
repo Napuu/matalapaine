@@ -1,24 +1,13 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Box, Paper, Tooltip, Typography, IconButton, Fade, Slide } from "@mui/material";
+import { useState, useCallback } from "react";
+import { Box, Tooltip, Typography, IconButton, Fade, Slide } from "@mui/material";
 import moment from "moment";
 import { InfoOutlined, AccessTime, Update, Close, ArrowRight } from '@mui/icons-material';
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-
-const useInterval = (callback, delay) => {
-  const savedCallback = React.useRef();
-
-  useEffect(() => {
-    savedCallback.current = callback;
-  }, [callback]);
-
-  useEffect(() => {
-    function tick() {
-      savedCallback.current();
-    }
-    let id = setInterval(tick, delay);
-    return () => clearInterval(id);
-  }, [delay]);
-};
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Container } from './Container';
+import Selector from './Selector';
+import { useInterval } from './useInterval';
+import { teal } from '@mui/material/colors';
+import { primaryTeal } from './Theme';
 
 const UpdatingDate = () => {
   const [date, setDate] = useState(moment());
@@ -30,18 +19,7 @@ const UpdatingDate = () => {
   </Typography>;
 };
 
-const Container = React.forwardRef((props, ref) => (
-  <Paper ref={ref} style={{
-    color: "rgba(103, 221, 142, 0.87)",
-    background: "rgba(10, 10, 10, 0.7)",
-    position: "absolute",
-    zIndex: 999,
-    margin: "10px",
-    display: "flex",
-  }}>{props.children}</Paper>
-));
-
-const Date = ({ date }) => {
+const Date = ({ date, setDate }) => {
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const toggleTooltip = () => {
     setTooltipOpen(!tooltipOpen);
@@ -60,7 +38,7 @@ const Date = ({ date }) => {
     const params = new URLSearchParams(searchParams);
     params.delete("dateclosed");
     setSearchParams(params);
-  }
+  };
 
   const boxProps = {
     display: "flex",
@@ -79,44 +57,47 @@ const Date = ({ date }) => {
     return null;
   }
   return (<>
-    <Slide style={{ transitionDelay: visible ? '300ms' : '0ms' }} direction="right" in={visible} mountOnEnter unmountOnExit>
-      <Container>
-        <Box display={"flex"} flexDirection={"column"}>
-          <Box {...boxProps}>
-            <AccessTime {...iconProps} /><UpdatingDate />
+    <Slide style={{ transitionDelay: visible ? '300ms' : '0ms' }} direction="right" in={visible}>
+      <Container style={{ padding: "10px" }}>
+        <Box display="flex" flexDirection="row">
+          <Box display={"flex"} flexDirection={"column"}>
+            <Box {...boxProps}>
+              <AccessTime {...iconProps} /><UpdatingDate />
+            </Box>
+            <Box {...boxProps}>
+              <Update {...iconProps} sx={{
+                // Update icon seems to be slightly different size than AccessTime
+                transform: "scale(1.1125)",
+              }} />
+              <Typography>
+                {date.format('MMMM Do YYYY, HH.00.00')}
+              </Typography>
+            </Box>
           </Box>
-          <Box {...boxProps}>
-            <Update {...iconProps} sx={{
-              // Update icon seems to be slightly different size than AccessTime
-              transform: "scale(1.1125)",
-            }} />
-            <Typography>
-              {date.format('MMMM Do YYYY, HH.00.00')}
-            </Typography>
-          </Box>
-        </Box>
-        <Box display="flex" flexDirection="column">
-          <IconButton onClick={close} sx={{ padding: 0 }}>
-            <Close htmlColor="rgba(103, 221, 142, 0.87)" fontSize="small" />
-          </IconButton>
-          <Tooltip
-            placement='right'
-            style={{ padding: "10px" }}
-            title={<>
-              <Typography>Source available at <a href="https://github.com/napuu/matalapaine">GitHub</a></Typography>
-              <Typography>Weather data itself is from NOAA</Typography>
-            </>} open={tooltipOpen}>
-            <IconButton onClick={toggleTooltip}>
-              <InfoOutlined htmlColor="rgba(103, 221, 142, 0.87)" fontSize="small" />
+          <Box display="flex" flexDirection="column">
+            <IconButton onClick={close} sx={{ padding: 0 }}>
+              <Close htmlColor={teal[400]} fontSize="small" />
             </IconButton>
-          </Tooltip>
+            <Tooltip
+              placement='right'
+              style={{ padding: "10px" }}
+              title={<>
+                <Typography>Source available at <a href="https://github.com/napuu/matalapaine">GitHub</a></Typography>
+                <Typography>Weather data itself is from NOAA</Typography>
+              </>} open={tooltipOpen}>
+              <IconButton onClick={toggleTooltip}>
+                <InfoOutlined htmlColor={primaryTeal} fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
+        <Selector date={date} setDate={setDate} />
       </Container>
     </Slide>
-    <Slide style={{ transitionDelay: visible ? '0ms' : '300ms' }} direction="right" in={!visible} mountOnEnter unmountOnExit>
+    <Slide style={{ transitionDelay: visible ? '0ms' : '300ms' }} direction="right" in={!visible}>
       <Container>
         <IconButton
-          onClick={open}><ArrowRight fontSize='large' htmlColor="rgba(103, 221, 142, 0.87)" /></IconButton>
+          onClick={open}><ArrowRight fontSize='large' htmlColor={primaryTeal} /></IconButton>
       </Container>
     </Slide>
   </>
