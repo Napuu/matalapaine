@@ -69,7 +69,6 @@ function Map() {
         container: mapContainer.current,
         style: 'mapbox://styles/palikk/cl0i0f7er000114nuxzu3s5z2',
         center: [lng, lat],
-        disableTouchZoom: true,
         dragRotate: false,
         touchZoomRotate: false,
         minZoom: 1,
@@ -82,7 +81,6 @@ function Map() {
         // some features are kind of buggy with chrome/safari + webgl2
         const userAgent = window.navigator.userAgent;
         const disableBlend = userAgent.includes("Chrome") || userAgent.includes("Safari");
-        // setCanvasLoaded(true);
         const gl = glRef.current;
         if (!gl) {
           alert("Unfortunately your browser doesn't support webgl2 :/");
@@ -145,7 +143,6 @@ function Map() {
           updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
         };
         map.current.on("load", () => {
-          console.log("loaded");
           updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
           requestAnimationFrame(tick);
           refresh();
