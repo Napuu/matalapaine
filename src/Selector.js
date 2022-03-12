@@ -43,7 +43,10 @@ const Selector = ({ date, setDate }) => {
   };
 
   useInterval(() => {
-    if (autoUpdate) {
+    const currentHour = moment().hour();
+    const dateHour = date.hour();
+    const isInCorrectlyShowingCurrentHour = currentHour === dateHour;
+    if (autoUpdate && isInCorrectlyShowingCurrentHour) {
       handleReset();
     }
   }, 5000);
