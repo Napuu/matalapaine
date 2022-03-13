@@ -23,7 +23,7 @@ const Selector = ({ date, setDate }) => {
     const newDate = date.clone().add(-1, "hour");
     setDate(newDate);
     setAutoUpdate(false);
-    if (Math.abs(moment().diff(newDate, "hours")) >= hours) {
+    if (moment().diff(newDate, "hours") >= hours) {
       setPrevAvailable(false);
     }
   };
@@ -32,7 +32,7 @@ const Selector = ({ date, setDate }) => {
     const newDate = date.clone().add(1, "hour");
     setDate(newDate);
     setAutoUpdate(false);
-    if (Math.abs(moment().diff(newDate, "hours")) > hours) {
+    if (moment().diff(newDate, "hours") < -hours) {
       setNextAvailable(false);
     }
   };
