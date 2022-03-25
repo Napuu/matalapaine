@@ -142,11 +142,8 @@ function Map() {
           animationState.current.running = true;
           updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
         };
-        map.current.on("load", () => {
-          updateLayerBounds(gl, map.current.getBounds(), image, updateProgram, drawProgram);
-          requestAnimationFrame(tick);
-          refresh();
-        });
+        requestAnimationFrame(tick);
+        refresh();
         map.current.on("movestart", () => {
           animationState.current.running = false;
         });
