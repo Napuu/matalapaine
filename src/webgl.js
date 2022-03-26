@@ -317,9 +317,7 @@ export const resetAnimation = (
   gl.canvas.height = canvas.clientHeight * pxRatio;
   updateProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
   drawProgram.uniforms.canvasDimensions = [gl.canvas.width, gl.canvas.height];
-  const numParticles = Math.floor(
-    (gl.canvas.width * gl.canvas.height * particleDensity) / 1000
-  );
+  const numParticles = Math.floor(gl.canvas.width * gl.canvas.height * particleDensity);
   drawProgram.uniforms.matrix = util.orthographic(
     0,
     gl.canvas.width,

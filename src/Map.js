@@ -16,6 +16,7 @@ import {
 } from "./webgl";
 import * as util from "./util";
 import { useSearchParams } from 'react-router-dom';
+import Legend from './Legend';
 
 function Map() {
   const canvasRef = useRef(null);
@@ -89,7 +90,7 @@ function Map() {
         const pxRatio = Math.max(Math.floor(window.devicePixelRatio) || 1, 2);
         canvasRef.current.width = canvasRef.current.clientWidth * pxRatio;
         canvasRef.current.height = canvasRef.current.clientHeight * pxRatio;
-        const particleDensity = 1.5;
+        const particleDensity = 1.5 / 600;
 
         // init webgl programs
         const { updateProgram, drawProgram, screenProgram } = initPrograms(gl);
@@ -164,6 +165,7 @@ function Map() {
   return (
     <div className="Map">
       <DateObject date={date} setDate={setDate} />
+      <Legend unit="m/s" values={["0", "5", "10", "15", "20", "25", "30+"]}/>
       <canvas style={{ left: "0px", height: "100vh", width: "100vw", position: "absolute", pointerEvents: "none", zIndex: 99 }} ref={canvasRef}></canvas>
       <div style={{ height: "100vh" }} ref={mapContainer} className="map-container" />
     </div>

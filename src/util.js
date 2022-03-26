@@ -66,30 +66,21 @@ export function createTexture(gl, filter, data, width, height) {
   return texture;
 }
 
-export function getColorRamp() {
-  // ramp implementation stolen from this awesome project
+export function drawColorRampOnCanvas(existingCanvas) {
+  // ramp implementation from this awesome project
   // https://github.com/mapbox/webgl-wind
-  const colors4 = {
-    /*
-    #ffffd9
-    #edf8b1
-    #c7e9b4
-    #7fcdbb
-    #41b6c4
-    #1d91c0
-    #225ea8
-    #0c2c84
-    */
-    0.0: "#ffffd9",
-    0.1: "#edf8b1",
-    0.2: "#c7e9b4",
-    0.3: "#7fcdbb",
-    0.4: "#41b6c4",
-    0.5: "#1d91c0",
-    0.6: "#225ea8",
-    1.0: "#0c2c84",
+  // colors from https://colorbrewer2.org/#type=sequential&scheme=YlGnBu&n=7
+  const colors = {
+    0.0: "#ffffd9", // 0
+    0.1: "#c7e9b4", // 5
+    0.2: "#7fcdbb", // 10
+    0.3: "#41b6c4", // 15
+    0.4: "#1d91c0", // 20
+    0.5: "#225ea8", // 25
+    0.6: "#0c2c84", // 30
+    // 1.0: "#0c2c84", // 50+
   };
-  const canvas = document.createElement("canvas");
+  const canvas = existingCanvas || document.createElement("canvas");
   canvas.id = "ramp";
   const ctx = canvas.getContext("2d");
 
@@ -97,13 +88,18 @@ export function getColorRamp() {
   canvas.height = 1;
 
   const gradient = ctx.createLinearGradient(0, 0, 256, 0);
-  for (const stop in colors4) {
-    gradient.addColorStop(stop, colors4[stop]);
+  for (const stop in colors) {
+    gradient.addColorStop(stop, colors[stop]);
   }
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 256, 1);
 
+  return { canvas, ctx };
+}
+
+export function getColorRamp() {
+  const { canvas, ctx } = drawColorRampOnCanvas();
   return { canvas, array: new Uint8Array(ctx.getImageData(0, 0, 256, 1).data) };
 }
 

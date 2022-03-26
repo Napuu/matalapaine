@@ -44,9 +44,9 @@ void main() {
   windspeed -= 0.5;
   vec2 seed1 = lookuppos * seed;
   float windspeedmeters = length(windspeed.xy);
-  float reset = step(.99 - windspeedmeters * 0.05, gold_noise(oldPosition, seed));
+  float reset = step(.998 - windspeedmeters * 0.05, gold_noise(oldPosition, seed));
   windspeed *= 100.;
-  vec2 temp = oldPosition + windspeed.xy * deltaTime * 5.0;
+  vec2 temp = oldPosition + windspeed.xy * deltaTime * 4.0;
   // if degeneration continues, replacing seed below with seed3 worked earlier
   float seed3 = fract(deltaTime);
   vec2 randPos2 = randPos(seed, oldPosition * seed3);
