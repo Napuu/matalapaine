@@ -14,8 +14,8 @@ const Legend = ({ unit, values }) => {
   const width = "200px";
   return (
     <Container style={{
-      bottom: "0px",
-      left: "100px",
+      bottom: "-7px",
+      left: "90px",
       pointerEvents: "none",
     }}>
       <Box display="flex" flexDirection="row">
