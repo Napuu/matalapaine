@@ -1,7 +1,9 @@
-# weather-dashboard-front
+# Matalapaine
 Visualizing wind conditions with WebGL2.
 
-https://matalapaine.fi
+### Note - project is not using live data anymore, but is hardcoded to 2022-01-02T12:00:00Z so the visualization is still available
+
+https://napuu.github.io/matalapaine
 
 ![preview](public/preview.png?raw=true)
 
